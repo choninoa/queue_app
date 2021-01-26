@@ -23,7 +23,7 @@ class ApiCalls {
     String apiaddress = prefs.getString('apiaddress');
     print(apiaddress);
     dios = Dio(BaseOptions(
-        baseUrl: apiaddress != null ? apiaddress : "http://kevirtual.com:3000"));
+        baseUrl: apiaddress != null ? apiaddress : "https://kevirtual.com/node_api"));
     // String tokenrefresh = prefs.getString("tokenrefresh");
     // String tokenaccess = prefs.getString("tokenaccess");
     /*(dios.httpClientAdapter as DefaultHttpClientAdapter).onHttpClientCreate  = (client) {

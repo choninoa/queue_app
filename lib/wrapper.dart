@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 import 'pages/passDoor.dart';
 import 'package:ke/utils/localizationsKE.dart';
 
-
 class Wrapper extends StatefulWidget {
   @override
   _WrapperState createState() => _WrapperState();
@@ -46,8 +45,7 @@ class _WrapperState extends State<Wrapper> {
           : current == 1
               ? MapPage(
                   title: "Virtual KE",
-                  language:LocalizationsKE.of(context)
-                                  .locale.toString(),
+                  language: LocalizationsKE.of(context).locale.toString(),
                 )
               : AccountInfo(),
       Positioned(
@@ -66,7 +64,7 @@ class _WrapperState extends State<Wrapper> {
                   color: Colors.indigo,
                 ),
               ),
-              AnimatedPositioned(
+              /*AnimatedPositioned(
                 left: pos,
                 duration: Duration(milliseconds: 200),
                 curve: Curves.ease,
@@ -79,13 +77,13 @@ class _WrapperState extends State<Wrapper> {
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(20))),
                 ),
-              ),
+              ),*/
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 30, vertical: 5),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
+                    /* IconButton(
                         icon: Icon(
                             _auth.currentUser.user.rol == "MODERATOR"
                                 ? CupertinoIcons.qrcode
@@ -96,10 +94,23 @@ class _WrapperState extends State<Wrapper> {
                             current = 0;
                             pos = 48;
                           });
-                        }),
-                    IconButton(
-                        icon: Icon(CupertinoIcons.map_pin, color: Colors.white),
-                        onPressed: () {
+                        }),*/
+                    Padding(
+                      padding: const EdgeInsets.all(5.0),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            current = 0;
+                            pos = 48;
+                          });
+                        },
+                        child: Image.asset("assets/images/Planification.png"),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(5.0),
+                      child: InkWell(
+                        onTap: () {
                           if (current == 1) {
                             _currentPosition.setCurrent(true);
                           }
@@ -107,16 +118,22 @@ class _WrapperState extends State<Wrapper> {
                             current = 1;
                             pos = MediaQuery.of(context).size.width / 2 - 5;
                           });
-                        }),
-                    IconButton(
-                        icon: Icon(CupertinoIcons.person_alt_circle,
-                            color: Colors.white),
-                        onPressed: () {
+                        },
+                        child: Image.asset("assets/images/pinmapKe.png"),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(5.0),
+                      child: InkWell(
+                        onTap: () {
                           setState(() {
                             current = 2;
                             pos = MediaQuery.of(context).size.width - 59;
                           });
-                        })
+                        },
+                        child: Image.asset("assets/images/Profile.png"),
+                      ),
+                    ),
                   ],
                 ),
               ),

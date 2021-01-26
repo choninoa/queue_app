@@ -20,6 +20,7 @@ import 'package:ke/persistence/repositories/storeRepository.dart';
 import 'package:ke/providers/authServices.dart';
 import 'package:ke/providers/currentPositionProvider.dart';
 import 'package:ke/utils/apiCalls.dart';
+import 'package:ke/utils/nextEntryPreview.dart';
 import 'package:ke/utils/notifications.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,7 +33,7 @@ import 'package:ke/utils/localizationsKE.dart';
 import 'dart:ui' as ui;
 
 class MapPage extends StatefulWidget {
-  MapPage({Key key, this.title,this.language}) : super(key: key);
+  MapPage({Key key, this.title, this.language}) : super(key: key);
   final String title;
   final String language;
 
@@ -179,7 +180,7 @@ class _MapPageState extends State<MapPage> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    print("Lenguaje: "+widget.language);
+    print("Lenguaje: " + widget.language);
     _pageController = PageController(viewportFraction: 0.9);
     apiCalls =
         Provider.of<ApiServicesProvider>(context, listen: false).apiCalls;
@@ -1324,7 +1325,7 @@ class _MapPageState extends State<MapPage> {
   void setMarkerIcons() async {
     BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
             "assets/images/storePin_${widget.language}.png")
-            //'assets/images/storePin.png')
+        //'assets/images/storePin.png')
         .then((onValue) {
       setState(() {
         storeIcon = onValue;
@@ -1624,13 +1625,13 @@ class _MapPageState extends State<MapPage> {
                       hideOnEmpty: true,
                     )),
                 AnimatedPositioned(
-                    top: showTravelData ? 10 : -350,
+                    top: showTravelData ? 10 : -500,
                     right: 5,
                     left: 5,
                     duration: Duration(milliseconds: 300),
                     child: Container(
                         //height: 100,
-                        padding: EdgeInsets.all(10),
+                        //padding: EdgeInsets.all(10),
                         decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
                             color: Colors.indigo),
@@ -1694,7 +1695,21 @@ class _MapPageState extends State<MapPage> {
                                   controlPlanificar(false)
                                 ],
                               ))
-                            : Column(
+                            : NextEntryPreview(
+                                store:
+                                    currentStore != null ? currentStore : null,
+                                distance: _placeDistance != null
+                                    ? _placeDistance + " KM"
+                                    : "",
+                                time: _remainingTime != null
+                                    ? _remainingTime.toString() + " min"
+                                    : "",
+                                horariosDisponibles: comprobationFinished
+                                    ? horariosDisponibles
+                                    : null,
+                                createReservation: createReservations,
+                              )
+                        /* Column(
                                 children: [
                                   Row(
                                     mainAxisAlignment:
@@ -1939,7 +1954,8 @@ class _MapPageState extends State<MapPage> {
                                     ],
                                   )
                                 ],
-                              ))),
+                              )*/
+                        )),
                 // Show zoom buttons
                 /*  SafeArea(
                   child: Padding(
