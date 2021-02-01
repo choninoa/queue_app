@@ -4,6 +4,8 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:ke/pages/updateUserInfo.dart';
+import 'package:ke/providers/utilsProvider.dart';
+import 'package:ke/utils/mapTypes.dart';
 import 'package:provider/provider.dart';
 import 'package:ke/providers/apiServicesProvider.dart';
 import 'package:ke/providers/authServices.dart';
@@ -46,15 +48,24 @@ class _AccountInfoState extends State<AccountInfo> {
   @override
   Widget build(BuildContext context) {
     _auth = Provider.of<AuthServices>(context);
+    UtilsProvider _utils = Provider.of<UtilsProvider>(context);
     return Scaffold(
       key: key,
       appBar: AppBar(
+        leading: Container(),
         centerTitle: true,
         title: Text(
           LocalizationsKE.of(context).perfil,
-          style: TextStyle(color: Colors.indigo),
+          style: TextStyle(
+              color: _utils.showCurrent() == MapTypes.REGULAR
+                  ? Colors.indigo
+                  : Colors.white),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: _utils.showCurrent() == MapTypes.RED
+            ? Colors.red
+            : _utils.showCurrent() == MapTypes.BLUE
+                ? Colors.blue
+                : Colors.white,
         elevation: 0,
         actions: [
           GestureDetector(
@@ -77,6 +88,16 @@ class _AccountInfoState extends State<AccountInfo> {
         ],
       ),
       body: Container(
+        decoration: _utils.showCurrent() != MapTypes.REGULAR
+            ? BoxDecoration(
+                image: DecorationImage(
+                    fit: BoxFit.cover,
+                    image: AssetImage(
+                      _utils.showCurrent() == MapTypes.RED
+                          ? "assets/images/red-map.png"
+                          : "assets/images/blue-map.png",
+                    )))
+            : BoxDecoration(),
         padding: EdgeInsets.symmetric(horizontal: 10),
         child: ListView(
           physics: BouncingScrollPhysics(),
@@ -98,7 +119,9 @@ class _AccountInfoState extends State<AccountInfo> {
                     child: Text(
                     _auth.currentUser.user.username,
                     style: TextStyle(
-                        color: Colors.black,
+                        color: _utils.showCurrent() == MapTypes.REGULAR
+                            ? Colors.indigo
+                            : Colors.black,
                         fontSize: 18,
                         fontWeight: FontWeight.w600),
                   ))
@@ -114,7 +137,9 @@ class _AccountInfoState extends State<AccountInfo> {
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
-                      color: Colors.indigo),
+                      color: _utils.showCurrent() == MapTypes.REGULAR
+                          ? Colors.indigo
+                          : Colors.white),
                 )),
             _auth.currentUser.user.name != null && _auth.user.user.name != ""
                 ? GestureDetector(
@@ -196,7 +221,9 @@ class _AccountInfoState extends State<AccountInfo> {
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
-                      color: Colors.indigo),
+                      color: _utils.showCurrent() == MapTypes.REGULAR
+                          ? Colors.indigo
+                          : Colors.white),
                 )),
             GestureDetector(
               /* onTap: () => Navigator.of(context)
@@ -219,6 +246,57 @@ class _AccountInfoState extends State<AccountInfo> {
                 context,
                 Icon(CupertinoIcons.lock_circle, color: Colors.indigo),
                 LocalizationsKE.of(context).privacidad),
+            SizedBox(
+              height: 20,
+            ),
+            Center(
+              child: Text(LocalizationsKE.of(context).themecolor,
+                  style: TextStyle(
+                      color: _utils.showCurrent() == MapTypes.REGULAR
+                          ? Colors.indigo
+                          : Colors.white,
+                      fontWeight: FontWeight.bold)),
+            ),
+            SizedBox(
+              height: 10,
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                InkWell(
+                  onTap: () => _utils.setCurrent(MapTypes.BLUE),
+                  child: Container(
+                    decoration: _utils.showCurrent() == MapTypes.BLUE
+                        ? BoxDecoration(
+                            color: Colors.blue, border: Border.all())
+                        : BoxDecoration(color: Colors.blue),
+                    height: 50,
+                    width: 50,
+                  ),
+                ),
+                InkWell(
+                  onTap: () => _utils.setCurrent(MapTypes.RED),
+                  child: Container(
+                    decoration: _utils.showCurrent() == MapTypes.RED
+                        ? BoxDecoration(color: Colors.red, border: Border.all())
+                        : BoxDecoration(color: Colors.red),
+                    height: 50,
+                    width: 50,
+                  ),
+                ),
+                InkWell(
+                  onTap: () => _utils.setCurrent(MapTypes.REGULAR),
+                  child: Container(
+                    decoration: _utils.showCurrent() == MapTypes.REGULAR
+                        ? BoxDecoration(
+                            color: Colors.white, border: Border.all())
+                        : BoxDecoration(color: Colors.white),
+                    height: 50,
+                    width: 50,
+                  ),
+                ),
+              ],
+            ),
             SizedBox(
               height: 100,
             )

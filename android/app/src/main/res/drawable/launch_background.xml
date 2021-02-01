@@ -7,6 +7,6 @@
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@drawable/ke" />
+            android:src="@drawable/kelogo" />
     </item> 
 </layer-list>

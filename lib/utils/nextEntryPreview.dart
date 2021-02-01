@@ -1,6 +1,7 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:intl/intl.dart';
 import 'package:ke/pages/MapPage.dart';
 import 'package:ke/persistence/models/storeModel.dart';
@@ -13,12 +14,14 @@ class NextEntryPreview extends StatefulWidget {
   String time;
   List<DateAux> horariosDisponibles;
   Function createReservation;
+  Function travelMode;
   NextEntryPreview(
       {this.store,
       this.distance,
       this.time,
       this.horariosDisponibles,
-      this.createReservation});
+      this.createReservation,
+      this.travelMode});
   @override
   _NextEntryPreviewState createState() => _NextEntryPreviewState();
 }
@@ -87,12 +90,12 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
                             color: Colors.grey,
                           ),
                           Text(
-                            "Opening time:",
+                            LocalizationsKE.of(context).abierto,
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(DateFormat.jm()
                                   .format(DateTime.parse(widget.store.openAt)) +
-                              " to " +
+                              LocalizationsKE.of(context).to +
                               DateFormat.jm().format(
                                   DateTime.parse(widget.store.closedAt))),
                           Divider(
@@ -101,7 +104,7 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
                           Row(
                             children: [
                               Text(
-                                "Distance: ",
+                                LocalizationsKE.of(context).distancia,
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                               Text(widget.distance)
@@ -110,7 +113,7 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
                           Row(
                             children: [
                               Text(
-                                "Time to Destination: ",
+                                LocalizationsKE.of(context).timetodestination,
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                               Text(widget.time)
@@ -139,17 +142,27 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
               ),
               Row(
                 children: [
-                  Container(
-                    margin: EdgeInsets.only(right: 10),
-                    child: Image.asset(
-                      "assets/images/one-man-walking.png",
-                      height: 25,
+                  InkWell(
+                    onTap: () {
+                      widget.travelMode(TravelMode.walking);
+                    },
+                    child: Container(
+                      margin: EdgeInsets.only(right: 10),
+                      child: Image.asset(
+                        "assets/images/one-man-walking.png",
+                        height: 25,
+                      ),
                     ),
                   ),
-                  Container(
-                    child: Image.asset(
-                      "assets/images/Car.png",
-                      height: 25,
+                  InkWell(
+                    onTap: () {
+                      widget.travelMode(TravelMode.driving);
+                    },
+                    child: Container(
+                      child: Image.asset(
+                        "assets/images/Car.png",
+                        height: 25,
+                      ),
                     ),
                   ),
                 ],
@@ -281,7 +294,7 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
                         duration: widget
                             .horariosDisponibles[currentPosition].dateTime
                             .difference(DateTime.now())),
-                    Text("Time for\nbooking")
+                    Text(LocalizationsKE.of(context).timeforbooking)
                   ],
                 )
               : Container(),
@@ -292,19 +305,22 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
               child: InkWell(
             onTap: () {
               print(widget.horariosDisponibles[currentPosition].dateTime);
-              widget
-                .createReservation(widget.horariosDisponibles[currentPosition].dateTime);
+              widget.createReservation(
+                  widget.horariosDisponibles[currentPosition].dateTime);
             },
             child: Container(
-              height: 50,
-              width: 100,
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              height: 60,
+              width: 170,
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(30),
                   color: Colors.indigo),
               child: Center(
-                child: Text(
-                  LocalizationsKE.of(context).reservar,
+                child: AutoSizeText(
+                  LocalizationsKE.of(context).reservarahora,
+                  maxLines: 1,
                   style: TextStyle(
+                    fontSize: 20,
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),

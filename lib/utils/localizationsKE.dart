@@ -14,11 +14,12 @@ class LocalizationsKE {
     'en': {
       'reservaciones': 'Reservations',
       'tiendas': ' stores near you',
-      'distancia': 'Distance',
+      'distancia': 'Distance: ',
       'disponibles': 'Available: ',
       "personas": "People",
       "reservar": "Booking",
-      "abierto": "Open from ",
+      "reservarahora": "Book now",
+      "abierto": "Open from: ",
       "to": "to",
       'informacion': 'Personal Info',
       'general': 'General',
@@ -57,19 +58,28 @@ class LocalizationsKE {
       'hora': "Time: ",
       'buscarestablecimiento': 'Find an establishment...',
       'mostrarruta': "Show Route",
-      'navegar': "Navigation",
+      'navegar': "Navigate Now",
       'otroshorarios': "Other schedules",
       'usuarioenblanco': "You must enter a username.",
       'passwordenblanco': "You must enter a password.",
+      'arrivaltime': "Arrival time: ",
+      'timetodestination': "Time to destination: ",
+      'timeforbooking': "Time for\nbooking: ",
+      'booked': "Booked",
+      'entry': "Entry",
+      'keisfindingyou': "We are finding you",
+      'themecolor': "Appearance",
+      'search': "Search...",
+      'go': "Go",
     },
     'es': {
       'reservaciones': 'Reservaciones',
       'tiendas': 'tiendas cercanas',
-      'distancia': 'Distancia',
+      'distancia': 'Distancia: ',
       'disponibles': 'Disponibles: ',
       "personas": "Personas",
       "reservar": "Reservar",
-      "abierto": "Abierto desde ",
+      "abierto": "Abierto desde: ",
       "to": "a ",
       'informacion': 'Información Personal',
       'general': 'General',
@@ -108,10 +118,20 @@ class LocalizationsKE {
       'hora': "Horario: ",
       'buscarestablecimiento': 'Buscar establecimiento...',
       'mostrarruta': "Mostrar Ruta",
-      'navegar': "Navegar",
+      'navegar': "Navegar ahora",
       'otroshorarios': "Otros horarios",
       'usuarioenblanco': "Debes introducir un nombre de usuario.",
       'passwordenblanco': "Debes introducir una contraseña.",
+      'arrivaltime': "Hora de llegada: ",
+      'timetodestination': "Tiempo en llegar: ",
+      'timeforbooking': "Tiempo para\nreservar: ",
+      'booked': "Reservado",
+      'entry': "Entrar",
+      'keisfindingyou': "Estamos localizandote",
+      'themecolor': "Apariencia",
+      'search': "Buscar...",
+      "reservarahora": "Reservar ahora",
+      'go': "Ir",
     },
     'fr': {
       'reservaciones': 'Réservations',
@@ -120,7 +140,7 @@ class LocalizationsKE {
       'disponibles': 'Disponible: ',
       "personas": "Personnes",
       "reservar": "Reserver",
-      "abierto": "Ouvert de ",
+      "abierto": "Ouvert de: ",
       "to": "à ",
       'informacion': 'Information personnelle',
       'general': 'Général',
@@ -159,12 +179,63 @@ class LocalizationsKE {
       'hora': "Programme: ",
       'buscarestablecimiento': 'Trouver un établissement...',
       'mostrarruta': "Montrer l'itinéraire",
-      'navegar': "Navigation",
+      'navegar': "Naviguez Maintenant",
       'otroshorarios': "Autres horaires",
       'usuarioenblanco': "Vous devez entrer un nom d'utilisateur.",
       'passwordenblanco': "Vous devez entrer un mot de passe.",
+      'arrivaltime': "Heure d'arrivée: ",
+      'timetodestination': "Temps à destination: ",
+      'timeforbooking': "L'heure de\nla réservation: ",
+      'booked': "Réservée",
+      'entry': "Entrée",
+      'keisfindingyou': "Nous te trouvons",
+      'themecolor': "Apparence",
+      'search': "Chercher...",
+      'reservarahora': "Réservez maintenant",
+      'go': "Aller",
     },
   };
+
+  String get go {
+    return _localizedValues[locale.languageCode]['go'];
+  }
+
+
+  String get reservarahora {
+    return _localizedValues[locale.languageCode]['reservarahora'];
+  }
+
+  String get search {
+    return _localizedValues[locale.languageCode]['search'];
+  }
+
+  String get themecolor {
+    return _localizedValues[locale.languageCode]['themecolor'];
+  }
+
+  String get keisfindingyou {
+    return _localizedValues[locale.languageCode]['keisfindingyou'];
+  }
+
+  String get booked {
+    return _localizedValues[locale.languageCode]['booked'];
+  }
+
+  String get entry {
+    return _localizedValues[locale.languageCode]['entry'];
+  }
+
+  String get arrivaltime {
+    return _localizedValues[locale.languageCode]['arrivaltime'];
+  }
+
+  String get timeforbooking {
+    return _localizedValues[locale.languageCode]['timeforbooking'];
+  }
+
+  String get timetodestination {
+    return _localizedValues[locale.languageCode]['timetodestination'];
+  }
 
   String get navegar {
     return _localizedValues[locale.languageCode]['navegar'];

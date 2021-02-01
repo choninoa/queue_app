@@ -19,9 +19,12 @@ import 'package:ke/persistence/repositories/reservationRepository.dart';
 import 'package:ke/persistence/repositories/storeRepository.dart';
 import 'package:ke/providers/authServices.dart';
 import 'package:ke/providers/currentPositionProvider.dart';
+import 'package:ke/providers/utilsProvider.dart';
 import 'package:ke/utils/apiCalls.dart';
+import 'package:ke/utils/mapTypes.dart';
 import 'package:ke/utils/nextEntryPreview.dart';
 import 'package:ke/utils/notifications.dart';
+import 'package:ke/utils/rippleAnimation.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ke/providers/apiServicesProvider.dart';
@@ -33,9 +36,10 @@ import 'package:ke/utils/localizationsKE.dart';
 import 'dart:ui' as ui;
 
 class MapPage extends StatefulWidget {
-  MapPage({Key key, this.title, this.language}) : super(key: key);
+  MapPage({Key key, this.title, this.language, this.mapType}) : super(key: key);
   final String title;
   final String language;
+  final MapTypes mapType;
 
   @override
   _MapPageState createState() => _MapPageState();
@@ -44,6 +48,7 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   ApiCalls apiCalls;
   StoreRepository repository;
+  double searchBarPosition = 150;
   ReservationRepository reservationRepository;
   bool comprobationFinished = false;
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
@@ -69,7 +74,9 @@ class _MapPageState extends State<MapPage> {
   String _destinationAddress = '';
   String _placeDistance;
   bool showTravelData = false;
+  bool showReservationsInfo = false;
   int _remainingTime;
+  String _arrivalTime;
   Geolocator geolocator = new Geolocator();
   Set<Marker> markers = {};
   AuthServices _auth;
@@ -105,6 +112,11 @@ class _MapPageState extends State<MapPage> {
   bool _isNavigating = false;
   String _instruction = "";
   TravelMode travelMode = TravelMode.driving;
+  int simulatePosition = 0;
+  double simulateBearing = 0;
+  BitmapDescriptor sourceIcon2;
+  UtilsProvider _utils;
+  bool showfinding = true;
 
   Widget _textField({
     TextEditingController controller,
@@ -199,13 +211,20 @@ class _MapPageState extends State<MapPage> {
     );
     initializeTimeZone();
     initialize();
+    StreamSubscription positionStream =
+        Geolocator().getPositionStream().listen((Position position) {
+      setState(() {
+        _currentPosition = position;
+        updatePinOnMap();
+      });
+    });
 
     //scheduleNotification();
   }
 
   initializeTimeZone() async {
     tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation("GMT-5"));
+    tz.setLocalLocation(tz.getLocation(DateTime.now().timeZoneName));
   }
 
   Future onSelectNotification(String payload) {
@@ -339,7 +358,7 @@ class _MapPageState extends State<MapPage> {
             print("DIST: " + dist.toString());
             repository.stores[i].distance = dist;
             if (dist < 20000) {
-              addStoreMarker(repository.stores[i]);
+              //addStoreMarker(repository.stores[i]);
             }
           }
         }
@@ -361,6 +380,23 @@ class _MapPageState extends State<MapPage> {
 
 // For controlling the view of the Map
 
+  void updatePinOnMap() async {
+    setState(() {
+      var pinPosition =
+          LatLng(_currentPosition.latitude, _currentPosition.longitude);
+      markers.removeWhere((m) => m.markerId.value == 'sourcePin');
+      Marker startMarker = Marker(
+        markerId: MarkerId('currentPosition'),
+        position: LatLng(
+          _currentPosition.latitude,
+          _currentPosition.longitude,
+        ),
+        icon: currentLocationIcon,
+      );
+      markers.add(startMarker);
+    });
+  }
+
   _getCurrentLocation() async {
     await _geolocator
         .getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
@@ -368,7 +404,7 @@ class _MapPageState extends State<MapPage> {
       setState(() {
         // Store the position in the variable
         _currentPosition = position;
-
+        showfinding = false;
         print('CURRENT POS: $_currentPosition');
 
         // For moving the camera to current location
@@ -433,10 +469,10 @@ class _MapPageState extends State<MapPage> {
     }*/
     setState(() {
       markers.clear();
-      for (var i = 0; i < repository.stores.length; i++) {
+      /* for (var i = 0; i < repository.stores.length; i++) {
         if (repository.stores[i].distance < 20000)
           addStoreMarker(repository.stores[i]);
-      }
+      }*/
       Marker startMarker = Marker(
         markerId: MarkerId('currentPosition'),
         position: LatLng(
@@ -446,6 +482,22 @@ class _MapPageState extends State<MapPage> {
         icon: currentLocationIcon,
       );
       markers.add(startMarker);
+    });
+  }
+
+  changeTravelMode(TravelMode mode) {
+    setState(() {
+      travelMode = mode;
+      _calculateDistance(_currentPosition, currentStore);
+
+      PolylineId id = PolylineId('poly');
+      Polyline polyline = Polyline(
+        polylineId: id,
+        color: Colors.indigo,
+        points: polylineCoordinates,
+        width: 8,
+      );
+      polylines[id] = polyline;
     });
   }
 
@@ -526,9 +578,11 @@ class _MapPageState extends State<MapPage> {
             ),
             //icon: BitmapDescriptor.fromBytes(markerIcon),
             icon: destinationIcon,
+            infoWindow: InfoWindow(title: storeModel.name),
             onTap: () {
               setState(() {
                 // showAvailableReservations = true;
+                showReservationsInfo = !showReservationsInfo;
                 showTravelData = !showTravelData;
               });
             });
@@ -536,6 +590,9 @@ class _MapPageState extends State<MapPage> {
         setState(() {
           markers.removeWhere(
               (element) => element.markerId == MarkerId(storeModel.id));
+          markers.removeWhere((element) =>
+              element.markerId == MarkerId("offset" + storeModel.id));
+
           markers.add(newMarker);
         });
 
@@ -590,15 +647,27 @@ class _MapPageState extends State<MapPage> {
         setState(() {
           _placeDistance = totalDistance.toStringAsFixed(2);
           showTravelData = true;
+          var fos = new DateFormat.jm();
+
+          loading = false;
           if (travelMode == TravelMode.walking) {
             _remainingTime = ((totalDistance / 7) * 60).round().toInt();
+            DateTime arrival =
+                DateTime.now().add(Duration(minutes: _remainingTime));
+            _arrivalTime = fos.format(arrival);
             print("total " + totalDistance.toString());
           } else {
             _remainingTime = ((totalDistance / 50) * 60).round().toInt();
+            DateTime arrival =
+                DateTime.now().add(Duration(minutes: _remainingTime));
+            _arrivalTime = fos.format(arrival);
           }
           if (_remainingTime < 1)
             setState(() {
               _remainingTime = 1;
+              DateTime arrival =
+                  DateTime.now().add(Duration(minutes: _remainingTime));
+              _arrivalTime = fos.format(arrival);
             });
 
           /*  if (comprobationFinished) {
@@ -625,6 +694,35 @@ class _MapPageState extends State<MapPage> {
     return false;
   }
 
+  simulateRoutes() async {
+    print("simualste?" + polylineCoordinates.length.toString());
+    CameraPosition cPosition = CameraPosition(
+      zoom: 18,
+      target: LatLng(polylineCoordinates[simulatePosition].latitude,
+          polylineCoordinates[simulatePosition].longitude),
+    );
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(CameraUpdate.newCameraPosition(cPosition));
+
+    setState(() {
+      var pinPosition = LatLng(polylineCoordinates[simulatePosition].latitude,
+          polylineCoordinates[simulatePosition].longitude);
+      markers.removeWhere((m) => m.markerId.value == 'simulatePin');
+      markers.add(Marker(
+          markerId: MarkerId('simulatePin'),
+          onTap: () {
+            setState(() {
+              //pinPillPosition = 0;
+            });
+          },
+          position: pinPosition,
+          anchor: Offset(0.5, 0.5),
+          rotation: simulateBearing,
+          icon: destinationIcon));
+      simulatePosition++;
+    });
+  }
+
   // Formula for calculating distance between two coordinates
   // https://stackoverflow.com/a/54138876/11910277
   double _coordinateDistance(lat1, lon1, lat2, lon2) {
@@ -648,9 +746,40 @@ class _MapPageState extends State<MapPage> {
     print("Resultado coordenadas:" + result.errorMessage);
 
     if (result.points.isNotEmpty) {
-      result.points.forEach((PointLatLng point) {
-        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+      setState(() {
+        result.points.forEach((PointLatLng point) {
+          polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+        });
+
+        PolylineId id = PolylineId('poly');
+        Polyline polyline = Polyline(
+          polylineId: id,
+          color: widget.mapType == MapTypes.REGULAR ? Colors.red : Colors.white,
+          points: polylineCoordinates,
+          width: 8,
+        );
+        polylines[id] = polyline;
       });
+      /* Timer.periodic(
+          Duration(seconds: 5),
+          (Timer t) => simulatePosition > 0
+              ? Geolocator()
+                  .bearingBetween(
+                      polylineCoordinates[simulatePosition - 1].latitude,
+                      polylineCoordinates[simulatePosition - 1].longitude,
+                      polylineCoordinates[simulatePosition].latitude,
+                      polylineCoordinates[simulatePosition].longitude)
+                  .then((value) {
+                  if (simulatePosition == polylineCoordinates.length) {
+                    t.cancel();
+                  }
+                  setState(() {
+                    simulateBearing = value;
+                    print("este es el bearing: " + value.toString());
+                    simulateRoutes();
+                  });
+                })
+              : simulateRoutes());*/
     }
   }
 
@@ -664,77 +793,84 @@ class _MapPageState extends State<MapPage> {
           title: Container(
             height: 50,
             decoration: BoxDecoration(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                color: Colors.indigo),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              //color: Colors.indigo
+            ),
             child: Center(
-                child: Text(
-              "Vitual KE",
-              style: TextStyle(color: Colors.white),
-            )),
+                child: Text(LocalizationsKE.of(context).booked,
+                    style: TextStyle(color: Colors.indigo, fontSize: 25))),
           ),
           content: Container(
-            height: MediaQuery.of(context).size.height / 5,
+            height: MediaQuery.of(context).size.height / 4,
             width: MediaQuery.of(context).size.width,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text(
-                  text,
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Text(LocalizationsKE.of(context).entry,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        )),
+                    Text(
+                      text,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                        fontSize: 22,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Text(
+                      currentStore.name,
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Container(
+                      width: MediaQuery.of(context).size.width / 2 - 40,
+                      child: AutoSizeText(
+                        currentStore.address,
+                        maxLines: 3,
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 10,
+                ),
+                Center(
+                  child: Container(
+                    // width: 120,
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        color: Colors.indigo),
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        startRoute();
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(10),
+                        child: Center(
+                            child: AutoSizeText(
+                          LocalizationsKE.of(context).navegar,
+                          style: TextStyle(color: Colors.white, fontSize: 20),
+                        )),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          actions: <Widget>[
-            Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15), color: Colors.green),
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    // _placeDistance = null;
-
-                    PolylineId id = PolylineId('poly');
-                    Polyline polyline = Polyline(
-                      polylineId: id,
-                      color: Colors.indigo,
-                      points: polylineCoordinates,
-                      width: 8,
-                    );
-                    polylines[id] = polyline;
-                  });
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  padding: EdgeInsets.all(10),
-                  child: Center(
-                      child: Text(
-                    LocalizationsKE.of(context).mostrarruta,
-                    style: TextStyle(color: Colors.white),
-                  )),
-                ),
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: Colors.indigo),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                  startRoute();
-                },
-                child: Container(
-                  padding: EdgeInsets.all(10),
-                  child: Center(
-                      child: Text(
-                    LocalizationsKE.of(context).navegar,
-                    style: TextStyle(color: Colors.white),
-                  )),
-                ),
-              ),
-            ),
-          ],
         ),
       );
 
@@ -857,6 +993,8 @@ class _MapPageState extends State<MapPage> {
 
   giveMeAvailableTimes(StoreModel store) {
     setState(() {
+      loading = true;
+      showTravelData = false;
       comprobationFinished = false;
     });
     DateTime open = DateTime.parse(store.openAt).toUtc();
@@ -873,7 +1011,6 @@ class _MapPageState extends State<MapPage> {
         close.millisecond,
         close.microsecond);
     setState(() {
-      currentStore = store;
       horariosDisponibles.clear();
     });
     print(close.toIso8601String());
@@ -963,6 +1100,7 @@ class _MapPageState extends State<MapPage> {
       });
     } else {
       setState(() {
+        comprobationFinished = true;
         loading = false;
       });
     }
@@ -1267,6 +1405,7 @@ class _MapPageState extends State<MapPage> {
         .then((value) {
       setState(() {
         loading = false;
+        comprobationFinished = false;
       });
       if (value != null) {
         DateTime reservation = DateTime.parse(value['date']).toLocal();
@@ -1297,8 +1436,7 @@ class _MapPageState extends State<MapPage> {
           var fos = new DateFormat.jm();
           String hour = fos.format(reservation);
           String date = formatter.format(reservation);
-          confirmationReservationDialog(context, "",
-              "${LocalizationsKE.of(context).reservationsuccess} $date - $hour.");
+          confirmationReservationDialog(context, "", "$hour");
         });
       } else {
         confirmationReservationDialog(context, "ERROR", "");
@@ -1323,28 +1461,41 @@ class _MapPageState extends State<MapPage> {
   }
 
   void setMarkerIcons() async {
-    BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
-            "assets/images/storePin_${widget.language}.png")
-        //'assets/images/storePin.png')
+    BitmapDescriptor.fromAssetImage(
+            ImageConfiguration(devicePixelRatio: 2.0),
+            //"assets/images/storePin_${widget.language}.png")
+            widget.mapType == MapTypes.REGULAR
+                ? 'assets/images/pinmapKe.png'
+                : 'assets/images/pinmapKeWhite.png')
         .then((onValue) {
       setState(() {
         storeIcon = onValue;
       });
     });
     BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
-            'assets/images/currentlocation.png')
+            'assets/images/taxipin2.png')
+        .then((onValue) {
+      setState(() {
+        sourceIcon2 = onValue;
+      });
+    });
+    BitmapDescriptor.fromAssetImage(
+            ImageConfiguration(devicePixelRatio: 2.0),
+            widget.mapType == MapTypes.REGULAR
+                ? 'assets/images/YourHerePinWhite.png'
+                : 'assets/images/YourHerePin.png')
         .then((onValue) {
       setState(() {
         currentLocationIcon = onValue;
       });
     });
-    BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
+    /*BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
             'assets/images/goalyellow.png')
         .then((onValue) {
       setState(() {
         destinationIcon = onValue;
       });
-    });
+    });*/
     /* BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
             'assets/images/goalindigo.png')
         .then((onValue) {
@@ -1352,8 +1503,11 @@ class _MapPageState extends State<MapPage> {
         destinationIcon = onValue;
       });
     });*/
-    BitmapDescriptor.fromAssetImage(ImageConfiguration(devicePixelRatio: 2.0),
-            'assets/images/goalindigo.png')
+    BitmapDescriptor.fromAssetImage(
+            ImageConfiguration(devicePixelRatio: 2.0),
+            widget.mapType == MapTypes.REGULAR
+                ? 'assets/images/pinmapKe.png'
+                : 'assets/images/pinmapKeWhite.png')
         .then((onValue) {
       setState(() {
         destinationIcon = onValue;
@@ -1368,20 +1522,57 @@ class _MapPageState extends State<MapPage> {
     });*/
   }
 
-  addStoreMarker(StoreModel store) {
+  addStoreMarker(StoreModel store) async {
+    final Uint8List markerIcon = await getBytesFromCanvas(200, 60);
     setState(() {
       _remainingTime = null;
       Marker startMarker = Marker(
-          markerId: MarkerId('${store.id}'),
+        markerId: MarkerId('${store.id}'),
+        position: LatLng(
+          store.latitude,
+          store.longitude,
+        ),
+        infoWindow: InfoWindow(
+          title: store.name,
+          snippet: store.address,
+        ),
+        icon: storeIcon,
+        draggable: true,
+        onDragEnd: (value) {
+          deleteStore(context, store.id);
+        },
+        /*  onTap: () {
+            //bottomSheetStores(context, store);
+            mapController.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(
+                  target: LatLng(store.latitude, store.longitude),
+                  zoom: 18,
+                ),
+              ),
+            );
+            cleanMarkers();
+            setState(() {
+              loading = true;
+              selectedMarkerId = store;
+            });
+            giveMeAvailableTimes(store);
+            _calculateDistance(_currentPosition, store);
+          }
+          */
+      );
+      Marker offsetMarker = Marker(
+          markerId: MarkerId('offset${store.id}'),
           position: LatLng(
             store.latitude,
             store.longitude,
           ),
+          anchor: Offset(0.5, -0.2),
           /*infoWindow: InfoWindow(
             title: store.name,
             snippet: store.address,
           ),*/
-          icon: storeIcon,
+          icon: BitmapDescriptor.fromBytes(markerIcon),
           draggable: true,
           onDragEnd: (value) {
             deleteStore(context, store.id);
@@ -1400,11 +1591,13 @@ class _MapPageState extends State<MapPage> {
             setState(() {
               loading = true;
               selectedMarkerId = store;
+              currentStore = store;
             });
-            giveMeAvailableTimes(store);
+            // giveMeAvailableTimes(store);
             _calculateDistance(_currentPosition, store);
           });
       markers.add(startMarker);
+      markers.add(offsetMarker);
     });
   }
 
@@ -1413,6 +1606,7 @@ class _MapPageState extends State<MapPage> {
     var height = MediaQuery.of(context).size.height;
     var width = MediaQuery.of(context).size.width;
     _auth = Provider.of<AuthServices>(context);
+    _utils = Provider.of<UtilsProvider>(context);
     CurrentPositionProvider _current =
         Provider.of<CurrentPositionProvider>(context);
     if (_current.showCurrent()) {
@@ -1445,13 +1639,21 @@ class _MapPageState extends State<MapPage> {
                   zoomGesturesEnabled: true,
                   zoomControlsEnabled: false,
                   polylines: Set<Polyline>.of(polylines.values),
-                  onMapCreated: (GoogleMapController controller) {
+                  onMapCreated: (GoogleMapController controller) async {
                     mapController = controller;
+                    if (_utils.showCurrent() != MapTypes.REGULAR) {
+                      String style = await DefaultAssetBundle.of(context)
+                          .loadString(_utils.showCurrent() == MapTypes.RED
+                              ? "assets/maps/mapstyle.json"
+                              : "assets/maps/mapstyleblue.json");
+                      controller.setMapStyle(style);
+                    }
                   },
                   onTap: (position) {
                     setState(() {
                       _placeDistance = "";
                       showTravelData = false;
+                      comprobationFinished = false;
                       polylineCoordinates.clear();
                       cleanMarkers();
                     });
@@ -1469,247 +1671,323 @@ class _MapPageState extends State<MapPage> {
                     });
                   },
                 ),
-                /* Center(
-                  child: GestureDetector(
-                    onTap: () {
-                     /* Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => NavigationPath()));*/
-                              startRoute();
-                    },
-                    child: Container(
-                      height: 50,
-                      width: 50,
-                      color: Colors.red,
-                    ),
-                  ),
-                ),*/
-
-                Container(
-                    margin: EdgeInsets.only(top: 20, right: 10, left: 10),
-                    height: 40,
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    width: MediaQuery.of(context).size.width - 20,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.indigo,
-                    ),
-                    child: TypeAheadField(
-                      textFieldConfiguration: TextFieldConfiguration(
-                          style: TextStyle(color: Colors.white),
-                          cursorColor: Colors.white,
-                          decoration: InputDecoration(
-                              hintText: LocalizationsKE.of(context)
-                                  .buscarestablecimiento,
-                              hintStyle: TextStyle(color: Colors.white),
-                              suffixIcon: Icon(
-                                Icons.search,
-                                color: Colors.white,
+                showfinding
+                    ? Positioned(
+                        child: RipplesAnimation(
+                            color: _utils.showCurrent() == MapTypes.RED
+                                ? Colors.red
+                                : Colors.indigo,
+                            child: Container()),
+                      )
+                    : Container(),
+                showfinding
+                    ? Positioned(
+                        top: width / 2 - 90,
+                        left: width / 2 - 90,
+                        child: Container(
+                          height: 180,
+                          width: 180,
+                          padding: EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                              color: Colors.white, shape: BoxShape.circle),
+                          child: Column(
+                            children: [
+                              Image.asset(
+                                "assets/images/KE-logo.png",
+                                height: 100,
+                                width: 100,
                               ),
-                              border: InputBorder.none)),
-                      //errorBuilder: (context, error) => Text("Error"),
-                      hideSuggestionsOnKeyboardHide: false,
-                      hideOnError: true,
-
-                      loadingBuilder: (context) => Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      suggestionsCallback: (pattern) {
-                        if (pattern.length > 0) {
-                          return repository.stores.where((element) => element
-                              .name
-                              .toLowerCase()
-                              .contains(pattern.toLowerCase()));
-                        }
-                        return null;
-                      },
-                      itemBuilder: (context, suggestion) {
-                        StoreModel store = suggestion;
-                        bool storeClose = false;
-                        String distance = "";
-                        DateTime open = DateTime.parse(store.openAt).toUtc();
-                        DateTime close = DateTime.parse(store.closedAt).toUtc();
-                        if (DateTime.now().hour > close.hour) {
-                          storeClose = true;
-                        } else if (DateTime.now().hour == close.hour &&
-                            DateTime.now().minute > close.minute) {
-                          storeClose = true;
-                        }
-                        var fos = new DateFormat.jm();
-                        String hour = fos.format(close);
-                        String openhour = fos.format(open);
-                        double dist = _coordinateDistance(
-                            store.latitude,
-                            store.longitude,
-                            _currentPosition.latitude,
-                            _currentPosition.longitude);
-                        print("AQUI" + dist.toString());
-                        dist *= 1000;
-                        if (dist > 1000) {
-                          print("Distancia: " + distance);
-                          distance = (dist / 1000).toStringAsFixed(1) + "km";
-                        } else {
-                          distance = dist.floor().toString() + "m";
-                        }
-                        return store.distance < 20000
-                            ? ListTile(
-                                leading: Container(
-                                  height: 40,
-                                  width: 40,
-                                  padding: EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      color: storeClose
-                                          ? Colors.red
-                                          : Colors.blue[200]),
-                                  child: Center(
-                                    child: Icon(
-                                      storeClose
-                                          ? CupertinoIcons.lock
-                                          : Icons.storefront,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(suggestion.name != null
-                                    ? suggestion.name
-                                    : ""),
-                                subtitle: Container(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      AutoSizeText(store.address,
-                                          maxLines: 1,
-                                          style:
-                                              TextStyle(color: Colors.black)),
-                                      AutoSizeText(
-                                          '${LocalizationsKE.of(context).abierto} $openhour ${LocalizationsKE.of(context).to} $hour',
-                                          maxLines: 1,
-                                          style:
-                                              TextStyle(color: Colors.green)),
-                                    ],
-                                  ),
-                                ),
-                                trailing: Container(
-                                  width: 60,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      AutoSizeText("Distancia", maxLines: 1),
-                                      AutoSizeText(
-                                        distance,
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            : Container();
-                      },
-                      onSuggestionSelected: (suggestion) {
-                        mapController.animateCamera(
-                          CameraUpdate.newCameraPosition(
-                            CameraPosition(
-                              target: LatLng(
-                                  suggestion.latitude, suggestion.longitude),
-                              zoom: 18.0,
-                            ),
+                              Container(
+                                  width: 120,
+                                  //height: 20,
+                                  padding: EdgeInsets.all(5),
+                                  child: AutoSizeText(
+                                    LocalizationsKE.of(context).keisfindingyou,
+                                    style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold),
+                                  ))
+                            ],
                           ),
-                        );
-                      },
-                      hideOnEmpty: true,
-                    )),
+                        ),
+                      )
+                    : Container(),
                 AnimatedPositioned(
-                    top: showTravelData ? 10 : -500,
+                  top: showfinding
+                      ? MediaQuery.of(context).size.width - 20
+                      : searchBarPosition,
+                  duration: Duration(milliseconds: 200),
+                  child: Container(
+                      margin: EdgeInsets.only(right: 10, left: 10),
+                      height: 75,
+                      padding: EdgeInsets.only(left: 10),
+                      width: MediaQuery.of(context).size.width - 20,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(40),
+                        color: _utils.showCurrent() == MapTypes.REGULAR
+                            ? Colors.indigo
+                            : Colors.white,
+                      ),
+                      child: Center(
+                        child: TypeAheadField(
+                          textFieldConfiguration: TextFieldConfiguration(
+                              style: TextStyle(color: Colors.black),
+                              cursorColor: Colors.black,
+                              decoration: InputDecoration(
+                                  contentPadding: EdgeInsets.only(top: 22),
+                                  hintText: LocalizationsKE.of(context).search,
+                                  hintStyle: TextStyle(
+                                      fontSize: 25,
+                                      color: _utils.showCurrent() ==
+                                              MapTypes.REGULAR
+                                          ? Colors.grey
+                                          : Colors.grey),
+                                  prefixIcon: Icon(Icons.search, size: 35),
+                                  suffixIcon: Container(
+                                    width: 100,
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 20),
+                                    decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(40),
+                                        color: Colors.blue),
+                                    child: Center(
+                                        child: AutoSizeText(
+                                            LocalizationsKE.of(context).go,
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 30))),
+                                  ),
+                                  border: InputBorder.none)),
+
+                          //errorBuilder: (context, error) => Text("Error"),
+                          hideSuggestionsOnKeyboardHide: false,
+                          hideOnError: true,
+
+                          loadingBuilder: (context) => Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          suggestionsCallback: (pattern) {
+                            setState(() {
+                              searchBarPosition = 50;
+                            });
+                            if (pattern.length > 0) {
+                              return repository.stores.where((element) =>
+                                  element.name
+                                      .toLowerCase()
+                                      .contains(pattern.toLowerCase()));
+                            }
+                            return null;
+                          },
+                          itemBuilder: (context, suggestion) {
+                            StoreModel store = suggestion;
+                            bool storeClose = false;
+                            String distance = "";
+                            DateTime open =
+                                DateTime.parse(store.openAt).toUtc();
+                            DateTime close =
+                                DateTime.parse(store.closedAt).toUtc();
+                            if (DateTime.now().hour > close.hour) {
+                              storeClose = true;
+                            } else if (DateTime.now().hour == close.hour &&
+                                DateTime.now().minute > close.minute) {
+                              storeClose = true;
+                            }
+                            var fos = new DateFormat.jm();
+                            String hour = fos.format(close);
+                            String openhour = fos.format(open);
+                            double dist = _coordinateDistance(
+                                store.latitude,
+                                store.longitude,
+                                _currentPosition.latitude,
+                                _currentPosition.longitude);
+                            print("AQUI" + dist.toString());
+                            dist *= 1000;
+                            if (dist > 1000) {
+                              print("Distancia: " + distance);
+                              distance =
+                                  (dist / 1000).toStringAsFixed(1) + "km";
+                            } else {
+                              distance = dist.floor().toString() + "m";
+                            }
+                            return store.distance < 20000
+                                ? ListTile(
+                                    leading: Container(
+                                      height: 40,
+                                      width: 40,
+                                      padding: EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          color: storeClose
+                                              ? Colors.red
+                                              : Colors.blue[200]),
+                                      child: Center(
+                                        child: Icon(
+                                          storeClose
+                                              ? CupertinoIcons.lock
+                                              : Icons.storefront,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    title: Text(suggestion.name != null
+                                        ? suggestion.name
+                                        : ""),
+                                    subtitle: Container(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          AutoSizeText(store.address,
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                  color: Colors.black)),
+                                          AutoSizeText(
+                                              '${LocalizationsKE.of(context).abierto} $openhour ${LocalizationsKE.of(context).to} $hour',
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                  color: Colors.green)),
+                                        ],
+                                      ),
+                                    ),
+                                    trailing: Container(
+                                      width: 60,
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          AutoSizeText("Distancia",
+                                              maxLines: 1),
+                                          AutoSizeText(
+                                            distance,
+                                            maxLines: 1,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : Container();
+                          },
+                          onSuggestionSelected: (suggestion) {
+                            mapController.animateCamera(
+                              CameraUpdate.newCameraPosition(
+                                CameraPosition(
+                                  target: LatLng(suggestion.latitude,
+                                      suggestion.longitude),
+                                  zoom: 18.0,
+                                ),
+                              ),
+                            );
+                            cleanMarkers();
+                            setState(() {
+                              loading = true;
+                              selectedMarkerId = suggestion;
+                              currentStore = suggestion;
+                              //markers.add(startMarker);
+                              //markers.add(offsetMarker);
+                            });
+                            // giveMeAvailableTimes(store);
+                            _calculateDistance(_currentPosition, suggestion)
+                                .then((value) =>
+                                    mapController.showMarkerInfoWindow(
+                                        MarkerId('${currentStore.id}')));
+                          },
+                          hideOnEmpty: true,
+                        ),
+                      )),
+                ),
+                AnimatedPositioned(
+                    top: comprobationFinished ? 50 : -500,
                     right: 5,
                     left: 5,
                     duration: Duration(milliseconds: 300),
                     child: Container(
-                        //height: 100,
-                        //padding: EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: Colors.indigo),
-                        child: currentStoreClose
-                            ? Container(
-                                child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        showAvailableReservations = false;
-                                        horariosDisponibles = new List();
-                                        _placeDistance = null;
-                                        showTravelData = false;
-                                      });
-                                    },
+                      //height: 100,
+                      //padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.indigo),
+                      child: currentStoreClose
+                          ? Container(
+                              child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      showAvailableReservations = false;
+                                      horariosDisponibles = new List();
+                                      _placeDistance = null;
+                                      showTravelData = false;
+                                      comprobationFinished = false;
+                                    });
+                                  },
+                                  child: Container(
                                     child: Container(
-                                      child: Container(
-                                        width: 80,
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 2),
-                                        decoration: BoxDecoration(
-                                            color: Colors.black,
-                                            borderRadius: BorderRadius.vertical(
-                                                top: Radius.circular(5))),
-                                        child: Center(
-                                          child: Icon(Icons.close_outlined,
-                                              color: Colors.white),
-                                        ),
+                                      width: 80,
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                          color: Colors.black,
+                                          borderRadius: BorderRadius.vertical(
+                                              top: Radius.circular(5))),
+                                      child: Center(
+                                        child: Icon(Icons.close_outlined,
+                                            color: Colors.white),
                                       ),
                                     ),
                                   ),
-                                  Container(
-                                    height: 80,
-                                    width: 80,
-                                    padding: EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(4),
-                                        color: Colors.red),
-                                    child: Center(
-                                      child: Icon(
-                                        CupertinoIcons.lock,
-                                        color: Colors.white,
-                                        size: 60,
-                                      ),
+                                ),
+                                Container(
+                                  height: 80,
+                                  width: 80,
+                                  padding: EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: Colors.red),
+                                  child: Center(
+                                    child: Icon(
+                                      CupertinoIcons.lock,
+                                      color: Colors.white,
+                                      size: 60,
                                     ),
                                   ),
-                                  SizedBox(
-                                    height: 10,
-                                  ),
-                                  Text(
-                                    LocalizationsKE.of(context).tiendacerrada,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white),
-                                  ),
-                                  SizedBox(
-                                    height: 10,
-                                  ),
-                                  controlPlanificar(false)
-                                ],
-                              ))
-                            : NextEntryPreview(
-                                store:
-                                    currentStore != null ? currentStore : null,
-                                distance: _placeDistance != null
-                                    ? _placeDistance + " KM"
-                                    : "",
-                                time: _remainingTime != null
-                                    ? _remainingTime.toString() + " min"
-                                    : "",
-                                horariosDisponibles: comprobationFinished
-                                    ? horariosDisponibles
-                                    : null,
-                                createReservation: createReservations,
-                              )
-                        /* Column(
+                                ),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                Text(
+                                  LocalizationsKE.of(context).tiendacerrada,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
+                                SizedBox(
+                                  height: 10,
+                                ),
+                                controlPlanificar(false)
+                              ],
+                            ))
+                          : NextEntryPreview(
+                              store: currentStore != null ? currentStore : null,
+                              distance: _placeDistance != null
+                                  ? _placeDistance + " KM"
+                                  : "",
+                              time: _remainingTime != null
+                                  ? _remainingTime.toString() + " min"
+                                  : "",
+                              horariosDisponibles: comprobationFinished
+                                  ? horariosDisponibles
+                                  : null,
+                              createReservation: createReservations,
+                              travelMode: changeTravelMode,
+                            ),
+                      /* Column(
                                 children: [
                                   Row(
                                     mainAxisAlignment:
@@ -1955,261 +2233,63 @@ class _MapPageState extends State<MapPage> {
                                   )
                                 ],
                               )*/
-                        )),
-                // Show zoom buttons
-                /*  SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 10.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        ClipOval(
-                          child: Material(
-                            color: Colors.blue[100], // button color
-                            child: InkWell(
-                              splashColor: Colors.blue, // inkwell color
-                              child: SizedBox(
-                                width: 50,
-                                height: 50,
-                                child: Icon(Icons.add),
-                              ),
-                              onTap: () {
-                                mapController.animateCamera(
-                                  CameraUpdate.zoomIn(),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 20),
-                        ClipOval(
-                          child: Material(
-                            color: Colors.blue[100], // button color
-                            child: InkWell(
-                              splashColor: Colors.blue, // inkwell color
-                              child: SizedBox(
-                                width: 50,
-                                height: 50,
-                                child: Icon(Icons.remove),
-                              ),
-                              onTap: () {
-                                mapController.animateCamera(
-                                  CameraUpdate.zoomOut(),
-                                );
-                              },
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-                // Show the place input fields & button for
-                // showing the route
-                SafeArea(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 10.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white70,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(20.0),
-                          ),
-                        ),
-                        width: width * 0.9,
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.only(top: 10.0, bottom: 10.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Text(
-                                'Places',
-                                style: TextStyle(fontSize: 20.0),
-                              ),
-                              SizedBox(height: 10),
-                              _textField(
-                                  label: 'Start',
-                                  hint: 'Choose starting point',
-                                  initialValue: _currentAddress,
-                                  prefixIcon: Icon(Icons.looks_one),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(Icons.my_location),
-                                    onPressed: () {
-                                      startAddressController.text =
-                                          _currentAddress;
-                                      _startAddress = _currentAddress;
-                                    },
-                                  ),
-                                  controller: startAddressController,
-                                  width: width,
-                                  locationCallback: (String value) {
-                                    setState(() {
-                                      _startAddress = value;
-                                    });
-                                  }),
-                              SizedBox(height: 10),
-                              _textField(
-                                  label: 'Destination',
-                                  hint: 'Choose destination',
-                                  initialValue: _currentAddress,
-                                  prefixIcon: Icon(Icons.looks_two),
-                                  controller: destinationAddressController,
-                                  width: width,
-                                  locationCallback: (String value) {
-                                    setState(() {
-                                      _destinationAddress = value;
-                                    });
-                                  }),
-                              SizedBox(height: 10),
-                              Visibility(
-                                visible: _placeDistance == null ? false : true,
-                                child: Text(
-                                  'DISTANCE: $_placeDistance km',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                    )),
+                currentStore != null
+                    ? AnimatedPositioned(
+                        bottom: showTravelData ? 10 : -100,
+                        child: Container(
+                            decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(.15),
+                                      offset: Offset(1, 1),
+                                      blurRadius: 8,
+                                      spreadRadius: 1)
+                                ],
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15)),
+                            margin: EdgeInsets.symmetric(horizontal: 10),
+                            padding: EdgeInsets.all(10),
+                            width: MediaQuery.of(context).size.width - 20,
+                            //height: 80,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(currentStore.name,
+                                        style: TextStyle(
+                                            color: Colors.blue, fontSize: 20)),
+                                    Container(
+                                        width:
+                                            MediaQuery.of(context).size.width -
+                                                90,
+                                        child: AutoSizeText(
+                                          currentStore.address,
+                                          maxLines: 1,
+                                        )),
+                                    Text(LocalizationsKE.of(context)
+                                            .arrivaltime +
+                                        "$_arrivalTime")
+                                  ],
                                 ),
-                              ),
-                              SizedBox(height: 5),
-                              RaisedButton(
-                                onPressed: (_startAddress != '' &&
-                                        _destinationAddress != '')
-                                    ? () async {
-                                        setState(() {
-                                          if (markers.isNotEmpty)
-                                            markers.clear();
-                                          if (polylines.isNotEmpty)
-                                            polylines.clear();
-                                          if (polylineCoordinates.isNotEmpty)
-                                            polylineCoordinates.clear();
-                                          _placeDistance = null;
-                                        });
-
-                                        _calculateDistance()
-                                            .then((isCalculated) {
-                                          if (isCalculated) {
-                                            scaffoldKey.currentState
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                    'Distance Calculated Sucessfully'),
-                                              ),
-                                            );
-                                          } else {
-                                            scaffoldKey.currentState
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                    'Error Calculating Distance'),
-                                              ),
-                                            );
-                                          }
-                                        });
-                                      }
-                                    : null,
-                                color: Colors.red,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20.0),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(
-                                    'Show Route'.toUpperCase(),
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20.0,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // Show current location button
-                SafeArea(
-                  child: Align(
-                    alignment: Alignment.bottomRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 10.0, bottom: 10.0),
-                      child: ClipOval(
-                        child: Material(
-                          color: Colors.orange[100], // button color
-                          child: InkWell(
-                            splashColor: Colors.orange, // inkwell color
-                            child: SizedBox(
-                              width: 56,
-                              height: 56,
-                              child: Icon(Icons.my_location),
-                            ),
-                            onTap: () {
-                              mapController.animateCamera(
-                                CameraUpdate.newCameraPosition(
-                                  CameraPosition(
-                                    target: LatLng(
-                                      _currentPosition.latitude,
-                                      _currentPosition.longitude,
-                                    ),
-                                    zoom: 18.0,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),*/
-                /*Positioned(
-                  bottom: 75,
-                  right: 10,
-                  child: GestureDetector(
-                    onTap: () {
-                      /*if (repository != null) {
-                        bottomSheetStores(context, null);
-                      }*/
-                      selectReservationDialog(context, repository.stores[2])
-                          .then((value) {
-                        if (value != null) {
-                          if (value.text == "SUCCESS") {
-                            currentTime = DateTime.now();
-                            var formatter = new DateFormat('dd/MM/yyyy');
-                            var fos = new DateFormat.jm();
-                            String hour = fos.format(value.dateTime);
-                            String date = formatter.format(value.dateTime);
-                            displayDialog(context, "",
-                                "${LocalizationsKE.of(context).reservationsuccess} $date - $hour.");
-                          } else {
-                            displayDialog(context, "ERROR", "");
-                          }
-                        }
-                      });
-                    },
-                    child: Container(
-                      height: 55,
-                      width: 55,
-                      decoration: BoxDecoration(
-                          shape: BoxShape.circle, color: Colors.indigo),
-                      child: Center(
-                          child: repository != null
-                              ? Icon(
-                                  CupertinoIcons.search,
-                                  size: 25,
-                                  color: Colors.white,
-                                )
-                              : CupertinoActivityIndicator()),
-                    ),
-                  ),
-                ),*/
-
+                                IconButton(
+                                    icon: Container(
+                                        padding: EdgeInsets.all(5),
+                                        decoration: BoxDecoration(
+                                            color: Colors.grey[300],
+                                            borderRadius:
+                                                BorderRadius.circular(4)),
+                                        child: Icon(Icons.arrow_forward,
+                                            color: Colors.white)),
+                                    onPressed: () =>
+                                        giveMeAvailableTimes(currentStore)),
+                              ],
+                            )),
+                        duration: Duration(milliseconds: 300))
+                    : Container(),
                 showAvailableReservations
                     ? Container(
                         height: MediaQuery.of(context).size.height,
@@ -2532,11 +2612,29 @@ class _MapPageState extends State<MapPage> {
                                   ),
                       )
                     : Container(),
+                Positioned(
+                  top: 10,
+                  left: 20,
+                  child: showTravelData || comprobationFinished
+                      ? IconButton(
+                          icon: Icon(Icons.arrow_back,
+                              color: Colors.white, size: 30),
+                          onPressed: () {
+                            setState(() {
+                              _placeDistance = "";
+                              showTravelData = false;
+                              comprobationFinished = false;
+                              polylineCoordinates.clear();
+                              cleanMarkers();
+                            });
+                          })
+                      : Container(),
+                ),
                 loading
                     ? Center(
                         child: CircularProgressIndicator(),
                       )
-                    : Container()
+                    : Container(),
               ],
             )),
       ),

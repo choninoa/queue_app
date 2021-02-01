@@ -25,7 +25,7 @@ FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 
     initializeTimeZone() async {
     tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation("GMT-5"));
+    tz.setLocalLocation(tz.getLocation(DateTime.now().timeZoneName));
   }
 
   Future onSelectNotification(String payload) {
@@ -78,15 +78,15 @@ Future<void> showNotificationMediaStyle() async {
       id,
       title,
       'Description',
-      icon: 'ke',
+      icon: 'kelogo',
       styleInformation: BigPictureStyleInformation(
-          DrawableResourceAndroidBitmap("ke"),
-          largeIcon: DrawableResourceAndroidBitmap("ke"),
+          DrawableResourceAndroidBitmap("kelogo"),
+          largeIcon: DrawableResourceAndroidBitmap("kelogo"),
           contentTitle: title,
           htmlFormatContentTitle: true,
           summaryText: body,
           htmlFormatSummaryText: true),
-      largeIcon: DrawableResourceAndroidBitmap('ke'),
+      largeIcon: DrawableResourceAndroidBitmap('kelogo'),
     );
     var iOSPlatformChannelSpecifics = IOSNotificationDetails();
     var platformChannelSpecifics = NotificationDetails(

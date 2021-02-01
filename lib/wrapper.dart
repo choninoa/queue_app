@@ -8,6 +8,7 @@ import 'package:ke/pages/UserInfo.dart';
 import 'package:ke/pages/createStore.dart';
 import 'package:ke/providers/authServices.dart';
 import 'package:ke/providers/currentPositionProvider.dart';
+import 'package:ke/providers/utilsProvider.dart';
 import 'package:provider/provider.dart';
 import 'pages/passDoor.dart';
 import 'package:ke/utils/localizationsKE.dart';
@@ -31,6 +32,8 @@ class _WrapperState extends State<Wrapper> {
     AuthServices _auth = Provider.of<AuthServices>(context);
     CurrentPositionProvider _currentPosition =
         Provider.of<CurrentPositionProvider>(context);
+        UtilsProvider _utils =
+        Provider.of<UtilsProvider>(context);
     if (current == 1) {
       pos = MediaQuery.of(context).size.width / 2 - 5;
     }
@@ -44,6 +47,7 @@ class _WrapperState extends State<Wrapper> {
                   : ReservationsPage()
           : current == 1
               ? MapPage(
+                mapType: _utils.showCurrent(),
                   title: "Virtual KE",
                   language: LocalizationsKE.of(context).locale.toString(),
                 )
@@ -119,7 +123,7 @@ class _WrapperState extends State<Wrapper> {
                             pos = MediaQuery.of(context).size.width / 2 - 5;
                           });
                         },
-                        child: Image.asset("assets/images/pinmapKe.png"),
+                        child: Image.asset("assets/images/pinmapKeWhite.png"),
                       ),
                     ),
                     Padding(

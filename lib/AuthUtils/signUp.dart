@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'package:ke/AuthUtils/logIn.dart';
+import 'package:ke/providers/utilsProvider.dart';
 import 'package:ke/utils/apiCalls.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:ke/utils/mapTypes.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert' show json, base64, ascii;
 import 'package:ke/providers/currentUser.dart';
@@ -28,6 +31,9 @@ class _SignUpState extends State<SignUp> {
   TextEditingController _telefono = new TextEditingController();
   TextEditingController _correo = new TextEditingController();
   ApiCalls apiCalls;
+  Map<int, Widget> map;
+  int selectedIndex = 1;
+
   String sexo = "";
   PageController controller = PageController();
   int _currentpage = 0;
@@ -53,59 +59,53 @@ class _SignUpState extends State<SignUp> {
 
   @override
   Widget build(BuildContext context) {
+    UtilsProvider _utils = Provider.of<UtilsProvider>(context);
+    map = {
+      0: Center(
+        child: Text(
+          LocalizationsKE.of(context).entrar,
+        ),
+      ),
+      1: Center(
+        child: Text(LocalizationsKE.of(context).registrarcuenta,
+            style: TextStyle(color: Colors.white)),
+      ),
+    };
     return SafeArea(
       child: Scaffold(
-          backgroundColor: Colors.indigo,
           resizeToAvoidBottomInset: false,
+          appBar: AppBar(
+            title: Text(
+              LocalizationsKE.of(context).registrarcuenta,
+              style: TextStyle(fontSize: 20, color: Colors.white),
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.red,
+            elevation: 0,
+          ),
           body: Container(
-            padding: EdgeInsets.symmetric(horizontal: 10),
+            //padding: EdgeInsets.symmetric(horizontal: 10),
             child: Form(
               key: _formKey,
               child: Stack(
                 children: <Widget>[
+                  Image.asset(
+                    _utils.showCurrent() == MapTypes.BLUE
+                        ? "assets/images/blue-map.png"
+                        : "assets/images/red-map.png",
+                    height: MediaQuery.of(context).size.height,
+                    width: MediaQuery.of(context).size.width,
+                    fit: BoxFit.cover,
+                  ),
                   Container(
-                    margin: EdgeInsets.only(top: 20, bottom: 20),
-                    padding: EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey,
-                            blurRadius: 1.0,
-                            spreadRadius: 1.0,
-                            offset: Offset(
-                              1.0,
-                              1.0,
-                            ),
-                          )
-                        ],
-                        borderRadius: BorderRadius.circular(25),
-                        color: Colors.white),
+                    padding: EdgeInsets.symmetric(horizontal: 10),
                     child: ListView(
                       children: [
-                        SizedBox(
-                          height: 40,
-                        ),
-                        Center(
-                          child: Text(
-                            LocalizationsKE.of(context).registrarcuenta,
-                            style: TextStyle(fontSize: 20, color: Colors.black),
-                          ),
-                        ),
-                        SizedBox(
-                          height: 20,
-                        ),
                         Container(
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             //style: TextStyle(color: Colors.white),
                             controller: _fullname,
@@ -129,14 +129,7 @@ class _SignUpState extends State<SignUp> {
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             //style: TextStyle(color: Colors.white),
                             controller: _username,
@@ -160,14 +153,7 @@ class _SignUpState extends State<SignUp> {
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             // style: TextStyle(color: Colors.white),
                             controller: _correo,
@@ -192,14 +178,7 @@ class _SignUpState extends State<SignUp> {
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             //style: TextStyle(color: Colors.white),
                             controller: _telefono,
@@ -224,14 +203,7 @@ class _SignUpState extends State<SignUp> {
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             //style: TextStyle(color: Colors.white),
                             controller: _direccion,
@@ -249,20 +221,13 @@ class _SignUpState extends State<SignUp> {
                           ),
                         ),
                         SizedBox(
-                          height: 15,
+                          height: 10,
                         ),
                         Container(
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             //style: TextStyle(color: Colors.white),
                             controller: _password,
@@ -287,14 +252,7 @@ class _SignUpState extends State<SignUp> {
                           padding: EdgeInsets.only(left: 10),
                           decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white,
-                                  Colors.grey.withOpacity(0.1)
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )),
+                              color: Colors.white),
                           child: TextField(
                             //style: TextStyle(color: Colors.white),
                             controller: _password2,
@@ -314,7 +272,7 @@ class _SignUpState extends State<SignUp> {
                           ),
                         ),
                         SizedBox(
-                          height: 40,
+                          height: 20,
                         ),
                         GestureDetector(
                           onTap: () async {
@@ -328,8 +286,8 @@ class _SignUpState extends State<SignUp> {
                               width: 500,
                               height: 60,
                               decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(15),
-                                  color: Colors.green),
+                                  borderRadius: BorderRadius.circular(40),
+                                  color: Colors.blue),
                               child: Padding(
                                 padding: const EdgeInsets.all(8.0),
                                 child: Center(
@@ -340,6 +298,23 @@ class _SignUpState extends State<SignUp> {
                               ),
                             ),
                           ),
+                        ),
+                        SizedBox(
+                          height: 20,
+                        ),
+                        CupertinoSlidingSegmentedControl(
+                            thumbColor: Colors.blue,
+                            backgroundColor: Colors.white,
+                            children: map,
+                            groupValue: selectedIndex,
+                            onValueChanged: (data) {
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => LogIn()));
+                            }),
+                        SizedBox(
+                          height: 20,
                         ),
                       ],
                     ),

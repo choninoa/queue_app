@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:ke/providers/authServices.dart';
 import 'package:ke/providers/currentPositionProvider.dart';
 import 'package:ke/providers/currentUser.dart';
+import 'package:ke/providers/utilsProvider.dart';
 import 'package:ke/utils/localizationsKE.dart';
 import 'package:ke/wrapper.dart';
 import 'package:provider/provider.dart';
@@ -33,7 +34,6 @@ void main() async {
       Provider<ApiServicesProvider>(
         create: (_) => ApiServicesProvider(),
       ),
-     
     ],
     child: MyApp(),
   ));
@@ -51,6 +51,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<CurrentPositionProvider>(
           create: (_) => CurrentPositionProvider(),
+        ),
+        ChangeNotifierProvider<UtilsProvider>(
+          create: (_) => UtilsProvider(),
         ),
       ],
       child: MaterialApp(

@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ke/persistence/models/userModel.dart';
+import 'package:ke/providers/utilsProvider.dart';
+import 'package:ke/utils/mapTypes.dart';
 import 'package:ke/wrapper.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert' show json, base64, ascii;
@@ -28,9 +30,11 @@ class _LogInState extends State<LogIn> {
   TextEditingController _password = new TextEditingController();
   TextEditingController _confirmationemail = new TextEditingController();
   TextEditingController _apiaddress = new TextEditingController();
+  Map<int, Widget> map;
 
   bool checkingUser = false;
   CurrentUser _currentUser;
+  int selectedIndex = 0;
   AuthServices _auth;
   ApiCalls apiCalls;
   bool sending = false;
@@ -276,281 +280,269 @@ class _LogInState extends State<LogIn> {
   Widget build(BuildContext context) {
     _currentUser = Provider.of<CurrentUser>(context);
     _auth = Provider.of<AuthServices>(context);
-
-    _formKey;
-    return SafeArea(
-      child: Scaffold(
-        resizeToAvoidBottomPadding: false,
-        backgroundColor: Colors.indigo,
-        body: Stack(
-          children: [
-            Positioned(
-              left: -MediaQuery.of(context).size.height / 4,
-              top: -40,
-              child: Container(
-                height: MediaQuery.of(context).size.height / 2,
-                width: MediaQuery.of(context).size.height / 2,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.5)),
-              ),
-            ),
-            Positioned(
-              left: -MediaQuery.of(context).size.height / 3,
-              top: 0,
-              child: Container(
-                height: MediaQuery.of(context).size.height / 2,
-                width: MediaQuery.of(context).size.height / 2,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.5)),
-              ),
-            ),
-            Positioned(
-              right: -MediaQuery.of(context).size.height / 8,
-              bottom: 0,
-              child: Container(
-                height: MediaQuery.of(context).size.height / 4,
-                width: MediaQuery.of(context).size.height / 4,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2)),
-              ),
-            ),
-            Positioned(
-              right: -MediaQuery.of(context).size.height / 6,
-              bottom: 0,
-              child: Container(
-                height: MediaQuery.of(context).size.height / 4,
-                width: MediaQuery.of(context).size.height / 4,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2)),
-              ),
-            ),
-            Form(
-              key: _formKey,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: ListView(
-                  //mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    /*  Container(
-                    decoration: BoxDecoration(
-                        image: DecorationImage(
-                            image: AssetImage("assets/images/calendar.png"))),
-                  ),*/
-                    SizedBox(
-                      height: 30,
-                    ),
-                    Center(
-                        child: Container(
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(40),
-                                boxShadow: [
-                                  BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 5,
-                                      spreadRadius: 5)
-                                ]),
-                            child: Image.asset("assets/images/ke.png"))),
-                    SizedBox(
-                      height: 50,
-                    ),
-                    Center(
-                      child: Container(
-                        decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 5,
-                                  spreadRadius: 5)
-                            ],
-                            borderRadius: BorderRadius.circular(25),
-                            color: Colors.white),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              SizedBox(
-                                height: 15,
-                              ),
-                              SizedBox(
-                                height: 15,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(15),
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.white,
-                                          Colors.grey.withOpacity(0.1)
-                                        ],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                      )),
-                                  child: TextFormField(
-                                    style: TextStyle(color: Colors.black),
-                                    controller: _username,
-                                    validator: (value) => value.isEmpty
-                                        ? LocalizationsKE.of(context)
-                                            .usuarioenblanco
-                                        : null,
-                                    decoration: InputDecoration(
-                                      labelStyle: TextStyle(color: Colors.grey),
-                                      border: InputBorder.none,
-                                      labelText:
-                                          LocalizationsKE.of(context).usuario,
-                                      suffixIcon: IconButton(
-                                          icon: Icon(
-                                            Icons.clear,
-                                            color: Colors.red,
-                                            size: 20.0,
-                                          ),
-                                          onPressed: () => _username.clear()),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                height: 15,
-                              ),
-                              SizedBox(
-                                height: 10,
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(15),
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.white,
-                                          Colors.grey.withOpacity(0.1)
-                                        ],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                      )),
-                                  child: TextFormField(
-                                    controller: _password,
-                                    obscureText: true,
-                                    validator: (value) => value.isEmpty
-                                        ? LocalizationsKE.of(context)
-                                            .passwordenblanco
-                                        : null,
-                                    style: TextStyle(color: Colors.black),
-                                    decoration: InputDecoration(
-                                      labelStyle: TextStyle(color: Colors.grey),
-                                      border: InputBorder.none,
-                                      labelText: LocalizationsKE.of(context)
-                                          .contrasena,
-                                      suffixIcon: IconButton(
-                                          icon: Icon(
-                                            Icons.clear,
-                                            color: Colors.red,
-                                            size: 20.0,
-                                          ),
-                                          onPressed: () => _password.clear()),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                height: 15,
-                              ),
-                              SizedBox(
-                                height: 20,
-                              ),
-                              GestureDetector(
-                                onTap: () async {
-                                  authenticate();
-                                },
-                                child: Center(
-                                  child: Container(
-                                    width: 500,
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(15),
-                                        color: Colors.blue),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Center(
-                                          child: Text(
-                                        LocalizationsKE.of(context).entrar,
-                                        style: TextStyle(color: Colors.white),
-                                      )),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                height: 20,
-                              ),
-                              Center(
-                                  child: GestureDetector(
-                                onTap: () =>
-                                    passwordRecovery(context, "title", "text"),
-                                child: Text(
-                                  LocalizationsKE.of(context).recuperarpassword,
-                                  style: TextStyle(color: Colors.blue),
-                                ),
-                              )),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 20,
-                    ),
-                    GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => SignUp()));
-                        },
-                        child: Center(
-                          child:
-                              Text(LocalizationsKE.of(context).registrarcuenta,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                  )),
-                        )),
-                    SizedBox(
-                      height: 20,
-                    ),
-                    GestureDetector(
-                        onTap: () {
-                          setAPIAddress(context);
-                        },
-                        child: Center(
-                          child: Text("Cambiar API",
-                              style: TextStyle(
-                                color: Colors.white,
-                              )),
-                        )),
-                  ],
-                ),
-              ),
-            ),
-            checkingUser
-                ? Center(
-                    child: Container(
-                      height: 80,
-                      width: 80,
-                      child: Theme(
-                          data: ThemeData(accentColor: Colors.blue),
-                          child: CircularProgressIndicator()),
-                    ),
-                  )
-                : Container()
-          ],
+    UtilsProvider _utils = Provider.of<UtilsProvider>(context);
+    map = {
+      0: Center(
+        child: Text(
+          LocalizationsKE.of(context).entrar,
+          style: TextStyle(color: Colors.white),
         ),
       ),
+      1: Center(
+        child: Text(
+          LocalizationsKE.of(context).registrarcuenta,
+        ),
+      ),
+    };
+    return SafeArea(
+      child: Scaffold(
+          resizeToAvoidBottomPadding: false,
+          //backgroundColor: Colors.indigo,
+          body: Container(
+            child: Stack(
+              children: [
+                Image.asset(
+                  _utils.showCurrent() == MapTypes.BLUE
+                      ? "assets/images/blue-map.png"
+                      : "assets/images/red-map.png",
+                  height: MediaQuery.of(context).size.height,
+                  width: MediaQuery.of(context).size.width,
+                  fit: BoxFit.cover,
+                ),
+                Container(
+                  height: MediaQuery.of(context).size.height,
+                  width: MediaQuery.of(context).size.width,
+                  child: selectedIndex == 0
+                      ? Stack(
+                          children: [
+                            Form(
+                              key: _formKey,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 10),
+                                child: ListView(
+                                  //mainAxisAlignment: MainAxisAlignment.center,
+                                  children: <Widget>[
+                                    /*  Container(
+                        decoration: BoxDecoration(
+                            image: DecorationImage(
+                                image: AssetImage("assets/images/calendar.png"))),
+                      ),*/
+                                    SizedBox(
+                                      height: 30,
+                                    ),
+                                    Center(
+                                        child: Container(
+                                            decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(40),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.1),
+                                                      blurRadius: 5,
+                                                      spreadRadius: 5)
+                                                ]),
+                                            child: Image.asset(
+                                                "assets/images/logo.png"))),
+                                    Center(
+                                      child: Container(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: <Widget>[
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.all(8.0),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                    horizontal: 10),
+                                                decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            15),
+                                                    color: Colors.white),
+                                                child: TextFormField(
+                                                  style: TextStyle(
+                                                      color: Colors.black),
+                                                  controller: _username,
+                                                  validator: (value) =>
+                                                      value.isEmpty
+                                                          ? LocalizationsKE.of(
+                                                                  context)
+                                                              .usuarioenblanco
+                                                          : null,
+                                                  decoration: InputDecoration(
+                                                    labelStyle: TextStyle(
+                                                        color: Colors.grey),
+                                                    border: InputBorder.none,
+                                                    labelText:
+                                                        LocalizationsKE.of(
+                                                                context)
+                                                            .usuario,
+                                                    suffixIcon: IconButton(
+                                                        icon: Icon(
+                                                          Icons.clear,
+                                                          color: Colors.red,
+                                                          size: 20.0,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _username.clear()),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.all(8.0),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                    horizontal: 10),
+                                                decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            15),
+                                                    color: Colors.white),
+                                                child: TextFormField(
+                                                  controller: _password,
+                                                  obscureText: true,
+                                                  validator: (value) =>
+                                                      value.isEmpty
+                                                          ? LocalizationsKE.of(
+                                                                  context)
+                                                              .passwordenblanco
+                                                          : null,
+                                                  style: TextStyle(
+                                                      color: Colors.black),
+                                                  decoration: InputDecoration(
+                                                    labelStyle: TextStyle(
+                                                        color: Colors.grey),
+                                                    border: InputBorder.none,
+                                                    labelText:
+                                                        LocalizationsKE.of(
+                                                                context)
+                                                            .contrasena,
+                                                    suffixIcon: IconButton(
+                                                        icon: Icon(
+                                                          Icons.clear,
+                                                          color: Colors.red,
+                                                          size: 20.0,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _password.clear()),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height: 15,
+                                            ),
+                                            GestureDetector(
+                                              onTap: () async {
+                                                authenticate();
+                                              },
+                                              child: Center(
+                                                child: Container(
+                                                  width: 500,
+                                                  height: 50,
+                                                  decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              40),
+                                                      color: Colors.blue),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            8.0),
+                                                    child: Center(
+                                                        child: Text(
+                                                      LocalizationsKE.of(
+                                                              context)
+                                                          .entrar,
+                                                      style: TextStyle(
+                                                          color: Colors.white),
+                                                    )),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height: 20,
+                                            ),
+                                            Center(
+                                                child: GestureDetector(
+                                              onTap: () => passwordRecovery(
+                                                  context, "title", "text"),
+                                              child: Text(
+                                                LocalizationsKE.of(context)
+                                                    .recuperarpassword,
+                                                style: TextStyle(
+                                                    color: Colors.white),
+                                              ),
+                                            )),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                        onTap: () {
+                                          setAPIAddress(context);
+                                        },
+                                        child: Center(
+                                          child: Text("Cambiar API",
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                              )),
+                                        )),
+                                    SizedBox(
+                                      height: 10,
+                                    ),
+                                    CupertinoSlidingSegmentedControl(
+                                        thumbColor: Colors.blue,
+                                        backgroundColor: Colors.white,
+                                        children: map,
+                                        groupValue: selectedIndex,
+                                        onValueChanged: (data) {
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      SignUp()));
+                                          //selectedIndex = data;
+                                        }),
+                                    SizedBox(
+                                      height: 15,
+                                    ),
+                                    Text(
+                                      "I accept terms and Conditions and Privacy Policy",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                    SizedBox(
+                                      height: 10,
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ),
+                            checkingUser
+                                ? Center(
+                                    child: Container(
+                                      height: 80,
+                                      width: 80,
+                                      child: Theme(
+                                          data: ThemeData(
+                                              accentColor: Colors.blue),
+                                          child: CircularProgressIndicator()),
+                                    ),
+                                  )
+                                : Container(),
+                          ],
+                        )
+                      : SignUp(),
+                ),
+              ],
+            ),
+          )),
     );
   }
 }
