@@ -49,6 +49,7 @@ class _MapPageState extends State<MapPage> {
   ApiCalls apiCalls;
   StoreRepository repository;
   double searchBarPosition = 150;
+  TextEditingController _typeAheadController;
   ReservationRepository reservationRepository;
   bool comprobationFinished = false;
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
@@ -198,7 +199,7 @@ class _MapPageState extends State<MapPage> {
         Provider.of<ApiServicesProvider>(context, listen: false).apiCalls;
     _getCurrentLocation();
     setMarkerIcons();
-
+    _typeAheadController = new TextEditingController();
     var initializationSettingsAndroid =
         AndroidInitializationSettings('ic_launcher');
     var initializationSettingsIOs = IOSInitializationSettings();
@@ -586,6 +587,20 @@ class _MapPageState extends State<MapPage> {
                 showTravelData = !showTravelData;
               });
             });
+        Marker offsetMarker = Marker(
+          markerId: MarkerId('offset${storeModel.id}'),
+          position: LatLng(
+            storeModel.latitude,
+            storeModel.longitude,
+          ),
+          anchor: Offset(0.5, -0.2),
+          /*infoWindow: InfoWindow(
+            title: store.name,
+            snippet: store.address,
+          ),*/
+          onTap: () => giveMeAvailableTimes(currentStore),
+          icon: BitmapDescriptor.fromBytes(markerIcon),
+        );
         // Destination Location Marker
         setState(() {
           markers.removeWhere(
@@ -594,6 +609,7 @@ class _MapPageState extends State<MapPage> {
               element.markerId == MarkerId("offset" + storeModel.id));
 
           markers.add(newMarker);
+          markers.add(offsetMarker);
         });
 
         // Adding the markers to the list
@@ -1732,6 +1748,7 @@ class _MapPageState extends State<MapPage> {
                       child: Center(
                         child: TypeAheadField(
                           textFieldConfiguration: TextFieldConfiguration(
+                              controller: _typeAheadController,
                               style: TextStyle(color: Colors.black),
                               cursorColor: Colors.black,
                               decoration: InputDecoration(
@@ -1874,6 +1891,19 @@ class _MapPageState extends State<MapPage> {
                                 : Container();
                           },
                           onSuggestionSelected: (suggestion) {
+                            String distance = "";
+                            double dist = _coordinateDistance(
+                                suggestion.latitude,
+                                suggestion.longitude,
+                                _currentPosition.latitude,
+                                _currentPosition.longitude);
+                            dist *= 1000;
+                            if (dist > 1000) {
+                              distance =
+                                  (dist / 1000).toStringAsFixed(1) + "km";
+                            } else {
+                              distance = dist.floor().toString() + "m";
+                            }
                             mapController.animateCamera(
                               CameraUpdate.newCameraPosition(
                                 CameraPosition(
@@ -1885,6 +1915,8 @@ class _MapPageState extends State<MapPage> {
                             );
                             cleanMarkers();
                             setState(() {
+                              _typeAheadController.text =
+                                  suggestion.name + "  " + distance;
                               loading = true;
                               selectedMarkerId = suggestion;
                               currentStore = suggestion;
@@ -2236,7 +2268,7 @@ class _MapPageState extends State<MapPage> {
                     )),
                 currentStore != null
                     ? AnimatedPositioned(
-                        bottom: showTravelData ? 10 : -100,
+                        bottom: showTravelData ? 60 : -100,
                         child: Container(
                             decoration: BoxDecoration(
                                 boxShadow: [
@@ -2621,6 +2653,7 @@ class _MapPageState extends State<MapPage> {
                               color: Colors.white, size: 30),
                           onPressed: () {
                             setState(() {
+                              _typeAheadController.clear();
                               _placeDistance = "";
                               showTravelData = false;
                               comprobationFinished = false;
