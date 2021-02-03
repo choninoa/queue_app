@@ -470,6 +470,7 @@ class _MapPageState extends State<MapPage> {
     }*/
     setState(() {
       markers.clear();
+      polylines.clear();
       /* for (var i = 0; i < repository.stores.length; i++) {
         if (repository.stores[i].distance < 20000)
           addStoreMarker(repository.stores[i]);
@@ -540,6 +541,7 @@ class _MapPageState extends State<MapPage> {
 
   Future<bool> _calculateDistance(
       Position startCoordinates, StoreModel storeModel) async {
+    print("YESS");
     try {
       // Retrieving placemarks from addresses
       /* List<Placemark> startPlacemark =
@@ -552,141 +554,171 @@ class _MapPageState extends State<MapPage> {
         polylines.clear();
       });
       //  if (startPlacemark != null && destinationPlacemark != null) {
-      if (true) {
-        // Use the retrieved coordinates of the current position,
-        // instead of the address if the start position is user's
-        // current position, as it results in better accuracy.
-        /* Position startCoordinates = _startAddress == _currentAddress
+
+      // Use the retrieved coordinates of the current position,
+      // instead of the address if the start position is user's
+      // current position, as it results in better accuracy.
+      /* Position startCoordinates = _startAddress == _currentAddress
             ? Position(
                 latitude: _currentPosition.latitude,
                 longitude: _currentPosition.longitude)
             : startPlacemark[0].position;
         Position destinationCoordinates = destinationPlacemark[0].position;*/
 
-        /* String text = LocalizationsKE.of(context).hora +
+      /* String text = LocalizationsKE.of(context).hora +
             horariosDisponibles[0].text +
             "\n" +
             LocalizationsKE.of(context).disponibles +
             (storeModel.bunchClients -
                     availableByDate(horariosDisponibles[0].dateTime))
                 .toString();*/
-        final Uint8List markerIcon = await getBytesFromCanvas(200, 60);
-        Marker newMarker = Marker(
-            markerId: MarkerId('${storeModel.id}'),
-            position: LatLng(
-              storeModel.latitude,
-              storeModel.longitude,
-            ),
-            //icon: BitmapDescriptor.fromBytes(markerIcon),
-            icon: destinationIcon,
-            infoWindow: InfoWindow(title: storeModel.name),
-            onTap: () {
-              setState(() {
-                // showAvailableReservations = true;
-                showReservationsInfo = !showReservationsInfo;
-                showTravelData = !showTravelData;
-              });
-            });
-        Marker offsetMarker = Marker(
-          markerId: MarkerId('offset${storeModel.id}'),
+      final Uint8List markerIcon = await getBytesFromCanvas(200, 60);
+      Marker newMarker = Marker(
+          markerId: MarkerId('${storeModel.id}'),
           position: LatLng(
             storeModel.latitude,
             storeModel.longitude,
           ),
-          anchor: Offset(0.5, -0.2),
-          /*infoWindow: InfoWindow(
+          //icon: BitmapDescriptor.fromBytes(markerIcon),
+          icon: destinationIcon,
+          infoWindow: InfoWindow(title: storeModel.name),
+          onTap: () {
+            setState(() {
+              // showAvailableReservations = true;
+              showReservationsInfo = !showReservationsInfo;
+              showTravelData = !showTravelData;
+            });
+          });
+      Marker offsetMarker = Marker(
+        markerId: MarkerId('offset${storeModel.id}'),
+        position: LatLng(
+          storeModel.latitude,
+          storeModel.longitude,
+        ),
+        anchor: Offset(0.5, -0.2),
+        /*infoWindow: InfoWindow(
             title: store.name,
             snippet: store.address,
           ),*/
-          onTap: () => giveMeAvailableTimes(currentStore),
-          icon: BitmapDescriptor.fromBytes(markerIcon),
+        onTap: () => giveMeAvailableTimes(currentStore),
+        icon: BitmapDescriptor.fromBytes(markerIcon),
+      );
+      // Destination Location Marker
+      setState(() {
+        markers.removeWhere(
+            (element) => element.markerId == MarkerId(storeModel.id));
+        markers.removeWhere((element) =>
+            element.markerId == MarkerId("offset" + storeModel.id));
+        markers.add(offsetMarker);
+        markers.add(newMarker);
+      });
+
+      // Adding the markers to the list
+
+      print('START COORDINATES: $startCoordinates');
+      print(
+          'DESTINATION COORDINATES: ${storeModel.latitude},${storeModel.longitude}');
+
+      Position _northeastCoordinates;
+      Position _southwestCoordinates;
+
+      // Calculating to check that
+      // southwest coordinate <= northeast coordinate
+      // Calculating to check that
+// southwest coordinate <= northeast coordinate
+      Position destinationCoordinates = new Position(
+          latitude: storeModel.latitude, longitude: storeModel.longitude);
+      if (startCoordinates.latitude <= destinationCoordinates.latitude) {
+        _southwestCoordinates = startCoordinates;
+        _northeastCoordinates = destinationCoordinates;
+      } else {
+        _southwestCoordinates = destinationCoordinates;
+        _northeastCoordinates = startCoordinates;
+      }
+
+      print("southWest" + _southwestCoordinates.toJson().toString());
+      print("NorthEast" + _northeastCoordinates.toJson().toString());
+
+// Accommodate the two locations within the
+// camera view of the map
+      mapController.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            northeast: LatLng(
+              _southwestCoordinates.latitude,
+              _southwestCoordinates.longitude,
+            ),
+            southwest: LatLng(
+              _northeastCoordinates.latitude,
+              _northeastCoordinates.longitude,
+            ),
+          ),
+          100.0, // padding
+        ),
+      );
+      /* mapController.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+              target: LatLng(storeModel.latitude, storeModel.longitude),
+              zoom: 15.0,
+              bearing: 75),
+        ),
+      );*/
+
+      // Accomodate the two locations within the
+      // camera view of the map
+
+      // Calculating the distance between the start and the end positions
+      // with a straight path, without considering any route
+      // double distanceInMeters = await Geolocator().bearingBetween(
+      //   startCoordinates.latitude,
+      //   startCoordinates.longitude,
+      //   destinationCoordinates.latitude,
+      //   destinationCoordinates.longitude,
+      // );
+
+      await _createPolylines(startCoordinates, destinationCoordinates);
+
+      double totalDistance = 0.0;
+
+      // Calculating the total distance by adding the distance
+      // between small segments
+      for (int i = 0; i < polylineCoordinates.length - 1; i++) {
+        totalDistance += _coordinateDistance(
+          polylineCoordinates[i].latitude,
+          polylineCoordinates[i].longitude,
+          polylineCoordinates[i + 1].latitude,
+          polylineCoordinates[i + 1].longitude,
         );
-        // Destination Location Marker
-        setState(() {
-          markers.removeWhere(
-              (element) => element.markerId == MarkerId(storeModel.id));
-          markers.removeWhere((element) =>
-              element.markerId == MarkerId("offset" + storeModel.id));
+      }
 
-          markers.add(newMarker);
-          markers.add(offsetMarker);
-        });
+      setState(() {
+        _placeDistance = totalDistance.toStringAsFixed(2);
+        showTravelData = true;
+        var fos = new DateFormat.jm();
 
-        // Adding the markers to the list
-
-        print('START COORDINATES: $startCoordinates');
-        print(
-            'DESTINATION COORDINATES: ${storeModel.latitude},${storeModel.longitude}');
-
-        Position _northeastCoordinates;
-        Position _southwestCoordinates;
-
-        // Calculating to check that
-        // southwest coordinate <= northeast coordinate
-        /* if (startCoordinates.latitude <= destinationCoordinates.latitude) {
-          _southwestCoordinates = startCoordinates;
-          _northeastCoordinates = destinationCoordinates;
+        loading = false;
+        if (travelMode == TravelMode.walking) {
+          _remainingTime = ((totalDistance / 7) * 60).round().toInt();
+          DateTime arrival =
+              DateTime.now().add(Duration(minutes: _remainingTime));
+          _arrivalTime = fos.format(arrival);
+          print("total " + totalDistance.toString());
         } else {
-          _southwestCoordinates = destinationCoordinates;
-          _northeastCoordinates = startCoordinates;
-        }*/
-
-        // Accomodate the two locations within the
-        // camera view of the map
-
-        // Calculating the distance between the start and the end positions
-        // with a straight path, without considering any route
-        // double distanceInMeters = await Geolocator().bearingBetween(
-        //   startCoordinates.latitude,
-        //   startCoordinates.longitude,
-        //   destinationCoordinates.latitude,
-        //   destinationCoordinates.longitude,
-        // );
-        Position destinationCoordinates = Position(
-            latitude: storeModel.latitude, longitude: storeModel.longitude);
-
-        await _createPolylines(startCoordinates, destinationCoordinates);
-
-        double totalDistance = 0.0;
-
-        // Calculating the total distance by adding the distance
-        // between small segments
-        for (int i = 0; i < polylineCoordinates.length - 1; i++) {
-          totalDistance += _coordinateDistance(
-            polylineCoordinates[i].latitude,
-            polylineCoordinates[i].longitude,
-            polylineCoordinates[i + 1].latitude,
-            polylineCoordinates[i + 1].longitude,
-          );
+          _remainingTime = ((totalDistance / 50) * 60).round().toInt();
+          DateTime arrival =
+              DateTime.now().add(Duration(minutes: _remainingTime));
+          _arrivalTime = fos.format(arrival);
         }
-
-        setState(() {
-          _placeDistance = totalDistance.toStringAsFixed(2);
-          showTravelData = true;
-          var fos = new DateFormat.jm();
-
-          loading = false;
-          if (travelMode == TravelMode.walking) {
-            _remainingTime = ((totalDistance / 7) * 60).round().toInt();
+        if (_remainingTime < 1)
+          setState(() {
+            _remainingTime = 1;
             DateTime arrival =
                 DateTime.now().add(Duration(minutes: _remainingTime));
             _arrivalTime = fos.format(arrival);
-            print("total " + totalDistance.toString());
-          } else {
-            _remainingTime = ((totalDistance / 50) * 60).round().toInt();
-            DateTime arrival =
-                DateTime.now().add(Duration(minutes: _remainingTime));
-            _arrivalTime = fos.format(arrival);
-          }
-          if (_remainingTime < 1)
-            setState(() {
-              _remainingTime = 1;
-              DateTime arrival =
-                  DateTime.now().add(Duration(minutes: _remainingTime));
-              _arrivalTime = fos.format(arrival);
-            });
+          });
 
-          /*  if (comprobationFinished) {
+        /*  if (comprobationFinished) {
             for (var i = 0; i < horariosDisponibles.length; i++) {
               setState(() {
                 if (DateTime.now()
@@ -698,12 +730,11 @@ class _MapPageState extends State<MapPage> {
               });
             }
           }*/
-          print('REMAINING: $_remainingTime km');
-          print('DISTANCE: $_placeDistance km');
-        });
+        print('REMAINING: $_remainingTime km');
+        print('DISTANCE: $_placeDistance km');
+      });
 
-        return true;
-      }
+      return true;
     } catch (e) {
       print(e);
     }
@@ -1008,6 +1039,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   giveMeAvailableTimes(StoreModel store) {
+    print("give me available");
     setState(() {
       loading = true;
       showTravelData = false;
@@ -1748,12 +1780,15 @@ class _MapPageState extends State<MapPage> {
                       child: Center(
                         child: TypeAheadField(
                           textFieldConfiguration: TextFieldConfiguration(
+                              onTap: () => _typeAheadController.clear(),
                               controller: _typeAheadController,
                               style: TextStyle(color: Colors.black),
                               cursorColor: Colors.black,
                               decoration: InputDecoration(
                                   contentPadding: EdgeInsets.only(top: 22),
-                                  hintText: LocalizationsKE.of(context).search,
+                                  hintText: searchBarPosition == 50
+                                      ? ""
+                                      : LocalizationsKE.of(context).search,
                                   hintStyle: TextStyle(
                                       fontSize: 25,
                                       color: _utils.showCurrent() ==
@@ -1904,7 +1939,7 @@ class _MapPageState extends State<MapPage> {
                             } else {
                               distance = dist.floor().toString() + "m";
                             }
-                            mapController.animateCamera(
+                            /* mapController.animateCamera(
                               CameraUpdate.newCameraPosition(
                                 CameraPosition(
                                   target: LatLng(suggestion.latitude,
@@ -1912,7 +1947,7 @@ class _MapPageState extends State<MapPage> {
                                   zoom: 18.0,
                                 ),
                               ),
-                            );
+                            );*/
                             cleanMarkers();
                             setState(() {
                               _typeAheadController.text =
