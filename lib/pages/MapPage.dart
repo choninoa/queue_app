@@ -641,21 +641,42 @@ class _MapPageState extends State<MapPage> {
 
 // Accommodate the two locations within the
 // camera view of the map
-      mapController.animateCamera(
+      LatLngBounds bounds = LatLngBounds(
+        northeast: LatLng(
+          _northeastCoordinates.latitude,
+          _northeastCoordinates.longitude,
+        ),
+        southwest: LatLng(
+          _southwestCoordinates.latitude,
+          _southwestCoordinates.longitude,
+        ),
+      );
+// calculating centre of the bounds
+      LatLng centerBounds = LatLng(
+          (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
+          (bounds.northeast.longitude + bounds.southwest.longitude) / 2);
+
+// setting map position to centre to start with
+      mapController.moveCamera(CameraUpdate.newCameraPosition(CameraPosition(
+        target: centerBounds,
+        zoom: 17,
+      )));
+
+      /* mapController.animateCamera(
         CameraUpdate.newLatLngBounds(
           LatLngBounds(
             northeast: LatLng(
-              _southwestCoordinates.latitude,
-              _southwestCoordinates.longitude,
-            ),
-            southwest: LatLng(
               _northeastCoordinates.latitude,
               _northeastCoordinates.longitude,
+            ),
+            southwest: LatLng(
+              _southwestCoordinates.latitude,
+              _southwestCoordinates.longitude,
             ),
           ),
           100.0, // padding
         ),
-      );
+      );*/
       /* mapController.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
@@ -709,6 +730,7 @@ class _MapPageState extends State<MapPage> {
           DateTime arrival =
               DateTime.now().add(Duration(minutes: _remainingTime));
           _arrivalTime = fos.format(arrival);
+          print("total " + totalDistance.toString());
         }
         if (_remainingTime < 1)
           setState(() {
@@ -717,7 +739,7 @@ class _MapPageState extends State<MapPage> {
                 DateTime.now().add(Duration(minutes: _remainingTime));
             _arrivalTime = fos.format(arrival);
           });
-
+        zoomToFit(mapController, bounds, centerBounds, totalDistance);
         /*  if (comprobationFinished) {
             for (var i = 0; i < horariosDisponibles.length; i++) {
               setState(() {
@@ -739,6 +761,49 @@ class _MapPageState extends State<MapPage> {
       print(e);
     }
     return false;
+  }
+
+  Future<void> zoomToFit(GoogleMapController controller, LatLngBounds bounds,
+      LatLng centerBounds, double distance) async {
+    bool keepZoomingOut = true;
+
+    while (keepZoomingOut) {
+      final LatLngBounds screenBounds = await controller.getVisibleRegion();
+      if (fits(bounds, screenBounds)) {
+        keepZoomingOut = false;
+        double zoomLevel = await controller.getZoomLevel();
+        zoomLevel = distance < 1 ? zoomLevel - 0.5 : zoomLevel - 1.5;
+        controller.moveCamera(CameraUpdate.newCameraPosition(CameraPosition(
+          target: centerBounds,
+          zoom: zoomLevel,
+        )));
+        break;
+      } else {
+        // Zooming out by 0.1 zoom level per iteration
+        final double zoomLevel = await controller.getZoomLevel() - 0.1;
+        controller.moveCamera(CameraUpdate.newCameraPosition(CameraPosition(
+          target: centerBounds,
+          zoom: zoomLevel,
+        )));
+      }
+    }
+  }
+
+  bool fits(LatLngBounds fitBounds, LatLngBounds screenBounds) {
+    final bool northEastLatitudeCheck =
+        screenBounds.northeast.latitude >= fitBounds.northeast.latitude;
+    final bool northEastLongitudeCheck =
+        screenBounds.northeast.longitude >= fitBounds.northeast.longitude;
+
+    final bool southWestLatitudeCheck =
+        screenBounds.southwest.latitude <= fitBounds.southwest.latitude;
+    final bool southWestLongitudeCheck =
+        screenBounds.southwest.longitude <= fitBounds.southwest.longitude;
+
+    return northEastLatitudeCheck &&
+        northEastLongitudeCheck &&
+        southWestLatitudeCheck &&
+        southWestLongitudeCheck;
   }
 
   simulateRoutes() async {
