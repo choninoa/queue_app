@@ -1,4 +1,17 @@
+import 'dart:convert';
+
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:ke/providers/utilsProvider.dart';
+import 'package:ke/utils/localizationsKE.dart';
+import 'package:ke/utils/mapTypes.dart';
+import 'package:ke/utils/rippleAnimation.dart';
+import 'package:latlong/latlong.dart';
+import 'package:mapbox_navigation/mapbox_navigation.dart';
+import 'package:provider/provider.dart';
+
+/*import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -360,5 +373,396 @@ class _NavigationPathState extends State<NavigationPath> {
         break;
     }
     setState(() {});
+  }
+}
+*/
+
+class Navigateate extends StatefulWidget {
+  Position initialPosition;
+  Position destinationPosition;
+  String language;
+  String route;
+  Navigateate(
+      {this.initialPosition,
+      this.destinationPosition,
+      this.language,
+      this.route});
+  @override
+  _NavigateateState createState() => _NavigateateState();
+}
+
+class _NavigateateState extends State<Navigateate> {
+  MapViewController controller;
+  var mapBox = MapboxNavigation();
+  var isLoading = false;
+  var isRouteInProgress = false;
+  bool noyet = true;
+  bool mapready=false;
+
+  @override
+  void initState() {
+    super.initState();
+    mapBox.init();
+
+    mapBox.getMapBoxEventResults().onData((data) {
+      printWrapped("Event: ${data.eventName}, Data: ${data.data}");
+
+      var event = MapBoxEventProvider.getEventType(data.eventName);
+
+      if (event == MapBoxEvent.map_ready) {
+        
+        if(!mapready)
+        controller.buildRoute(
+          originLat: widget.initialPosition != null
+              ? widget.initialPosition.latitude
+              : 20.955108,
+          originLong: widget.initialPosition != null
+              ? widget.initialPosition.longitude
+              : -76.9654117,
+          destinationLat: widget.destinationPosition != null
+              ? widget.destinationPosition.latitude
+              : 20.955033,
+          destinationLong: widget.destinationPosition != null
+              ? widget.destinationPosition.longitude
+              : -76.951786,
+        );
+        setState(() {
+          mapready=true;
+        });
+      } 
+
+       if (event == MapBoxEvent.navigation_running) {
+        setState(() {
+          noyet = false;
+        });
+      } else if (event == MapBoxEvent.route_building) {
+        setState(() {
+          isLoading = true;
+        });
+
+        print("Building route..");
+      } else if (event == MapBoxEvent.route_build_failed) {
+        setState(() {
+          isLoading = false;
+        });
+
+        print("Route building failed.");
+      } else if (event == MapBoxEvent.route_built) {
+        setState(() {
+          isLoading = false;
+         controller.startNavigation();
+        });
+
+        var routeResponse = MapBoxRouteResponse.fromJson(jsonDecode(data.data));
+
+        controller
+            .getFormattedDistance(routeResponse.routes.first.distance)
+            .then((value) => print("Route Distance: $value"));
+
+        controller
+            .getFormattedDuration(routeResponse.routes.first.duration)
+            .then((value) => print("Route Duration: $value"));
+      } else if (event == MapBoxEvent.progress_change) {
+        setState(() {
+          isRouteInProgress = true;
+        });
+
+        var progressEvent = MapBoxProgressEvent.fromJson(jsonDecode(data.data));
+
+        controller
+            .getFormattedDistance(progressEvent.legDistanceRemaining)
+            .then((value) => print("Leg Distance Remaining: $value"));
+
+        controller
+            .getFormattedDistance(progressEvent.distanceTraveled)
+            .then((value) => print("Distance Travelled: $value"));
+
+        controller
+            .getFormattedDuration(progressEvent.legDurationRemaining)
+            .then((value) => print("Leg Duration Remaining: $value"));
+
+        print("Instruction: ${progressEvent.currentStepInstruction},"
+            "Current Direction: ${progressEvent.currentDirection}");
+      } else if (event == MapBoxEvent.milestone_event) {
+        var mileStoneEvent =
+            MapBoxMileStoneEvent.fromJson(jsonDecode(data.data));
+
+        controller
+            .getFormattedDistance(mileStoneEvent.distanceTraveled)
+            .then((value) => print("Distance Travelled: $value"));
+      } else if (event == MapBoxEvent.speech_announcement) {
+        var speechEvent = MapBoxEventData.fromJson(jsonDecode(data.data));
+        print("Speech Text: ${speechEvent.data}");
+      } else if (event == MapBoxEvent.banner_instruction) {
+        var bannerEvent = MapBoxEventData.fromJson(jsonDecode(data.data));
+        print("Banner Text: ${bannerEvent.data}");
+      } else if (event == MapBoxEvent.navigation_cancelled) {
+        setState(() {
+          isRouteInProgress = false;
+          print("Canceled aqui");
+          // Navigator.pop(context);
+          //Navigator.pop(context);
+        });
+      } else if (event == MapBoxEvent.navigation_finished) {
+        setState(() {
+          isRouteInProgress = false;
+          print("Finished aqui");
+          // Navigator.pop(context);
+          // Navigator.pop(context);
+        });
+      } else if (event == MapBoxEvent.on_arrival) {
+        setState(() {
+          isRouteInProgress = false;
+        });
+      } else if (event == MapBoxEvent.user_off_route) {
+        var locationData = MapBoxLocation.fromJson(jsonDecode(data.data));
+        print("User has off-routed: Location: ${locationData.toString()}");
+      } else if (event == MapBoxEvent.faster_route_found) {
+        var routeResponse = MapBoxRouteResponse.fromJson(jsonDecode(data.data));
+
+        controller
+            .getFormattedDistance(routeResponse.routes.first.distance)
+            .then(
+                (value) => print("Faster route found: Route Distance: $value"));
+
+        controller
+            .getFormattedDuration(routeResponse.routes.first.duration)
+            .then(
+                (value) => print("Faster route found: Route Duration: $value"));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    UtilsProvider _utils = Provider.of<UtilsProvider>(context);
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: <Widget>[
+          MapBoxMapView(onMapViewCreated: _onMapViewCreated),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            color: Colors.white,
+            child: noyet
+                ? Stack(
+                    //crossAxisAlignment: CrossAxisAlignment.center,
+                    //mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Center(
+                        child: RipplesAnimation(
+                            color: _utils.showCurrent() == MapTypes.RED
+                                ? Colors.red
+                                : Colors.indigo,
+                            child: Container()),
+                      ),
+                      Center(
+                        child: Container(
+                          height: 180,
+                          width: 180,
+                          padding: EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                              color: Colors.white, shape: BoxShape.circle),
+                          child: Image.asset(
+                            "assets/images/KE-logo.png",
+                            height: 100,
+                            width: 100,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: EdgeInsets.all(20),
+                        child: Text(
+                          "We are finding the best route for you.",
+                          style: TextStyle(
+                              fontSize: 25,
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        "We hope you enjoy your ride, go to the store to check your reservation.",
+                        style: TextStyle(
+                            fontSize: 25,
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Center(
+                        child: InkWell(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: Colors.green),
+                            child: Center(
+                              child: Text(
+                                "Continuar",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      /* Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            RaisedButton(
+                                child: Text("Add Marker"),
+                                color: Colors.blue,
+                                textColor: Colors.white,
+                                onPressed: () async {
+                                  await controller.addMarker(
+                                      latitude: 33.569126,
+                                      longitude: 73.1231471);
+                                  await controller.moveCameraToPosition(
+                                      latitude: 33.569126,
+                                      longitude: 73.1231471);
+                                }),
+                            RaisedButton(
+                                child: Text("Move Camera"),
+                                color: Colors.blue,
+                                textColor: Colors.white,
+                                onPressed: () async {
+                                  await controller.moveCameraToPosition(
+                                      latitude: 33.6392443,
+                                      longitude: 73.278358);
+                                })
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            RaisedButton(
+                                child: Text("Build Route"),
+                                color: Colors.blue,
+                                textColor: Colors.white,
+                                onPressed: () async {
+                                  setState(() {
+                                    isLoading = true;
+                                  });
+                                  await controller
+                                      .buildRoute(
+                                          originLat: 20.955108,
+                                          originLong: -76.9654117,
+                                          destinationLat: 20.955033,
+                                          destinationLong: -76.951786,
+                                          zoom: 9.5)
+                                      .then((value) async {
+                                    print("ya cargo");
+                                    await controller.startNavigation(
+                                        shouldSimulateRoute: true);
+                                  });
+                                }),
+                            RaisedButton(
+                                child: Text("Navigate"),
+                                color: Colors.blue,
+                                textColor: Colors.white,
+                                onPressed: () async {
+                                  await controller.startNavigation(
+                                      shouldSimulateRoute: true);
+                                }),
+                            RaisedButton(
+                                child: Text("Navigate Embedded"),
+                                color: Colors.blue,
+                                textColor: Colors.white,
+                                onPressed: () async {
+                                  await controller
+                                      .startEmbeddedNavigation(
+                                    zoom: 18.0,
+                                    tilt: 90.0,
+                                    bearing: 50.0,
+                                    shouldSimulateRoute: true,
+                                  );
+                                })
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () async {
+                            await controller.startNavigation(
+                                shouldSimulateRoute: true);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: Colors.blue),
+                            child: Center(
+                              child: Text(
+                                "Start Navigation",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        )*/
+                    ],
+                  ),
+          ),
+          isLoading
+              ? Align(
+                  alignment: Alignment.center,
+                  child: CircularProgressIndicator())
+              : Container(),
+        ],
+      ),
+    );
+  }
+
+  void _onMapViewCreated(MapViewController controller) async {
+    this.controller = controller;
+    
+    await controller.showMap(MapBoxOptions(
+        initialLat: widget.initialPosition != null
+            ? widget.initialPosition.latitude
+            : 20.951,
+        initialLong: widget.initialPosition != null
+            ? widget.initialPosition.longitude
+            : -76.961,
+        enableRefresh: true,
+        alternatives: true,
+        zoom: 13.0,
+        tilt: 0.0,
+        bearing: 0.0,
+        clientAppName: "Virtual KE",
+        voiceInstructions: true,
+        bannerInstructions: true,
+        continueStraight: false,
+        profile: "driving-traffic",
+        language: widget.language,
+        testRoute: "",
+        debug: false));
+  }
+
+  String _prettyPrintJson(String input) {
+    JsonDecoder _decoder = JsonDecoder();
+    JsonEncoder _encoder = JsonEncoder.withIndent('  ');
+    var object = _decoder.convert(input);
+    var prettyString = _encoder.convert(object);
+    prettyString.split('\n').forEach((element) => print(element));
+    return prettyString;
+  }
+
+  void printWrapped(String text) {
+    final pattern = RegExp('.{1,800}'); // 800 is the size of each chunk
+    pattern.allMatches(text).forEach((match) => print(match.group(0)));
   }
 }

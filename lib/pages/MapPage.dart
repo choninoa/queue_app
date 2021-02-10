@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
@@ -7,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_mapbox_navigation/library.dart';
+//import 'package:flutter_mapbox_navigation/library.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:geolocator/geolocator.dart';
@@ -25,6 +26,7 @@ import 'package:ke/utils/mapTypes.dart';
 import 'package:ke/utils/nextEntryPreview.dart';
 import 'package:ke/utils/notifications.dart';
 import 'package:ke/utils/rippleAnimation.dart';
+import 'package:mapbox_navigation/mapbox_navigation.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ke/providers/apiServicesProvider.dart';
@@ -98,17 +100,17 @@ class _MapPageState extends State<MapPage> {
   bool currentStoreClose = false;
   StoreModel selectedMarkerId;
   bool loading = false;
-  MapBoxNavigation _directions;
-  MapBoxOptions _options;
+  //MapBoxNavigation _directions;
+  //MapBoxOptions _options;
   String _platformVersion = 'Unknown';
-  final _origin =
+  /*final _origin =
       WayPoint(name: "Way Point 1", latitude: 20.955450, longitude: -76.958669);
   final _stop1 =
-      WayPoint(name: "Way Point 2", latitude: 20.954899, longitude: -76.951309);
+      WayPoint(name: "Way Point 2", latitude: 20.954899, longitude: -76.951309);*/
   bool _arrived = false;
   bool _isMultipleStop = false;
   double _distanceRemaining, _durationRemaining;
-  MapBoxNavigationViewController _mapboxController;
+  //MapBoxNavigationViewController _mapboxController;
   bool _routeBuilt = false;
   bool _isNavigating = false;
   String _instruction = "";
@@ -118,6 +120,10 @@ class _MapPageState extends State<MapPage> {
   BitmapDescriptor sourceIcon2;
   UtilsProvider _utils;
   bool showfinding = true;
+  /*MapViewController controller;
+  var mapBox = MapboxNavigation();*/
+  bool mapboxRouteBuilded = false;
+  bool isRouteInProgress = false;
 
   Widget _textField({
     TextEditingController controller,
@@ -211,7 +217,7 @@ class _MapPageState extends State<MapPage> {
       //onSelectNotification: onSelectNotification
     );
     initializeTimeZone();
-    initialize();
+    //initialize();
     StreamSubscription positionStream =
         Geolocator().getPositionStream().listen((Position position) {
       setState(() {
@@ -234,7 +240,7 @@ class _MapPageState extends State<MapPage> {
     }));
   }
 
-  Future<void> initialize() async {
+  /*Future<void> initialize() async {
     // If the widget was removed from the tree while the asynchronous platform
     // message was in flight, we want to discard the reply rather than calling
     // setState to update our non-existent appearance.
@@ -339,7 +345,7 @@ class _MapPageState extends State<MapPage> {
         break;
     }
     setState(() {});
-  }
+  }*/
 
   getStores() {
     apiCalls.getStoresByCity().then((value) {
@@ -856,7 +862,7 @@ class _MapPageState extends State<MapPage> {
       travelMode: travelMode,
     );
     print("Resultado coordenadas:" + result.errorMessage);
-
+    print("esto necesito" + result.points.toString());
     if (result.points.isNotEmpty) {
       setState(() {
         result.points.forEach((PointLatLng point) {
@@ -966,8 +972,63 @@ class _MapPageState extends State<MapPage> {
                         color: Colors.indigo),
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.pop(context);
-                        startRoute();
+                        //Navigator.pop(context);
+                        // startRoute();
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => Navigateate(
+                                      initialPosition: _currentPosition,
+                                      destinationPosition: Position(
+                                          latitude: currentStore.latitude,
+                                          longitude: currentStore.longitude),
+                                      language: LocalizationsKE.of(context)
+                                          .locale
+                                          .toString(),
+                                    ))).then((value) {
+                          Navigator.pop(context);
+                          setState(() {
+                            _placeDistance = "";
+                            showTravelData = false;
+                            comprobationFinished = false;
+                            polylineCoordinates.clear();
+                            cleanMarkers();
+                          });
+                        });
+                        /*  setState(() {
+                          loading = true;
+                        });
+                        controller
+                            .buildRoute(
+                          originLat: _currentPosition != null
+                              ? _currentPosition.latitude
+                              : 20.955108,
+                          originLong: _currentPosition != null
+                              ? _currentPosition.longitude
+                              : -76.9654117,
+                          destinationLat: currentStore != null
+                              ? currentStore.latitude
+                              : 20.955033,
+                          destinationLong: currentStore != null
+                              ? currentStore.longitude
+                              : -76.951786,
+                        )
+                            .then((value) {
+                          setState(() {
+                            loading = false;
+                            // mapboxRouteBuilded = true;
+                          });
+                          Navigator.pop(context);
+                          mapController.animateCamera(
+                            CameraUpdate.newCameraPosition(
+                              CameraPosition(
+                                  target: LatLng(_currentPosition.latitude,
+                                      _currentPosition.longitude),
+                                  zoom: 18.0,
+                                  tilt: 18),
+                            ),
+                          );
+                        });*/
                       },
                       child: Container(
                         padding: EdgeInsets.all(10),
@@ -1178,11 +1239,11 @@ class _MapPageState extends State<MapPage> {
 
           loading = false;
           for (var i = 0; i < horariosDisponibles.length; i++) {
-            for (int i = 0;
-                i < reservationRepository.reservations.length;
-                i++) {
+            for (int j = 0;
+                j < reservationRepository.reservations.length;
+                j++) {
               DateTime d =
-                  DateTime.parse(reservationRepository.reservations[i].date)
+                  DateTime.parse(reservationRepository.reservations[j].date)
                       .toUtc();
               if (d.toLocal() == horariosDisponibles[i].dateTime.toLocal()) {
                 a++;
@@ -1192,6 +1253,7 @@ class _MapPageState extends State<MapPage> {
             if (remaining <= 0) {
               setState(() {
                 horariosDisponibles.removeAt(i);
+                //i-=1;
               });
             } else {
               break;
@@ -1736,12 +1798,6 @@ class _MapPageState extends State<MapPage> {
             width: MediaQuery.of(context).size.width,
             child: Stack(
               children: [
-                /*Image.asset(
-                  "assets/images/maps.png",
-                  height: MediaQuery.of(context).size.height,
-                  width: MediaQuery.of(context).size.width,
-                  fit: BoxFit.cover,
-                ),*/
                 GoogleMap(
                   markers: markers != null ? Set<Marker>.from(markers) : null,
                   initialCameraPosition: _initialLocation,
@@ -1962,7 +2018,7 @@ class _MapPageState extends State<MapPage> {
                                               style: TextStyle(
                                                   color: Colors.black)),
                                           AutoSizeText(
-                                              '${LocalizationsKE.of(context).abierto} $openhour ${LocalizationsKE.of(context).to} $hour',
+                                              '${LocalizationsKE.of(context).abierto} $openhour  ${LocalizationsKE.of(context).to} $hour',
                                               maxLines: 1,
                                               style: TextStyle(
                                                   color: Colors.green)),
@@ -2106,6 +2162,7 @@ class _MapPageState extends State<MapPage> {
                               ],
                             ))
                           : NextEntryPreview(
+                            travel: travelMode,
                               store: currentStore != null ? currentStore : null,
                               distance: _placeDistance != null
                                   ? _placeDistance + " KM"
@@ -2119,252 +2176,6 @@ class _MapPageState extends State<MapPage> {
                               createReservation: createReservations,
                               travelMode: changeTravelMode,
                             ),
-                      /* Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Container(
-                                        width:
-                                            MediaQuery.of(context).size.width /
-                                                    4 -
-                                                20,
-                                        child: Image.asset(
-                                          "assets/images/supermarket.jpg",
-                                          height: 60,
-                                          width: 60,
-                                        ),
-                                      ),
-                                      Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          currentStore != null
-                                              ? Text(currentStore.name,
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 20,
-                                                  ))
-                                              : Container(),
-                                          comprobationFinished
-                                              ? Container(
-                                                  width: MediaQuery.of(context)
-                                                              .size
-                                                              .width /
-                                                          2 -
-                                                      20,
-                                                  child: Text(
-                                                    LocalizationsKE.of(context)
-                                                            .proximaentrada +
-                                                        horariosDisponibles[0]
-                                                            .text +
-                                                        "\n" +
-                                                        LocalizationsKE.of(
-                                                                context)
-                                                            .disponibles +
-                                                        (currentStore
-                                                                    .bunchClients -
-                                                                availableByDate(
-                                                                    horariosDisponibles[
-                                                                            0]
-                                                                        .dateTime))
-                                                            .toString(),
-                                                    style: TextStyle(
-                                                        color: Colors.white),
-                                                  ),
-                                                )
-                                              : CircularProgressIndicator(),
-                                          _placeDistance != null
-                                              ? Text(
-                                                  LocalizationsKE.of(context)
-                                                          .distancia +
-                                                      " " +
-                                                      _placeDistance +
-                                                      " KM",
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                  ),
-                                                )
-                                              : Container()
-                                        ],
-                                      ),
-                                      Container(
-                                              width: MediaQuery.of(context)
-                                                          .size
-                                                          .width /
-                                                      4 -
-                                                  20,
-                                              child: Container(
-                                                padding: EdgeInsets.all(10),
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                      width: 4,
-                                                      color: Colors.white),
-                                                ),
-                                                child: Center(
-                                                    child: RichText(
-                                                  text: TextSpan(children: [
-                                                    TextSpan(
-                                                      text: _remainingTime != null
-                                          ? "  " +
-                                                          _remainingTime
-                                                              .toString():"  -",
-                                                      style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontWeight:
-                                                              FontWeight.bold),
-                                                    ),
-                                                    TextSpan(
-                                                      text: "\nMIN",
-                                                      style: TextStyle(
-                                                          color: Colors.white),
-                                                    ),
-                                                  ]),
-                                                )),
-                                              ),
-                                            )
-                                         
-                                    ],
-                                  ),
-                                  SizedBox(
-                                    height: 10,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
-                                    children: [
-                                      Container(
-                                        padding: EdgeInsets.all(5),
-                                        decoration: BoxDecoration(
-                                            color:
-                                                travelMode == TravelMode.walking
-                                                    ? Colors.green
-                                                    : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(5)),
-                                        child: IconButton(
-                                            icon: Icon(Icons.directions_walk,
-                                                color: Colors.white),
-                                            onPressed: () {
-                                              setState(() {
-                                                travelMode = TravelMode.walking;
-                                                _calculateDistance(
-                                                    _currentPosition,
-                                                    currentStore);
-
-                                                PolylineId id =
-                                                    PolylineId('poly');
-                                                Polyline polyline = Polyline(
-                                                  polylineId: id,
-                                                  color: Colors.indigo,
-                                                  points: polylineCoordinates,
-                                                  width: 8,
-                                                );
-                                                polylines[id] = polyline;
-                                              });
-                                            }),
-                                      ),
-                                      Container(
-                                        padding: EdgeInsets.all(5),
-                                        decoration: BoxDecoration(
-                                            color:
-                                                travelMode == TravelMode.driving
-                                                    ? Colors.green
-                                                    : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(5)),
-                                        child: IconButton(
-                                            icon: Icon(Icons.directions_bus,
-                                                color: Colors.white),
-                                            onPressed: () {
-                                              setState(() {
-                                                travelMode = TravelMode.driving;
-                                                _calculateDistance(
-                                                    _currentPosition,
-                                                    currentStore);
-
-                                                PolylineId id =
-                                                    PolylineId('poly');
-                                                Polyline polyline = Polyline(
-                                                  polylineId: id,
-                                                  color: Colors.indigo,
-                                                  points: polylineCoordinates,
-                                                  width: 8,
-                                                );
-                                                polylines[id] = polyline;
-                                              });
-                                            }),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(
-                                    height: 20,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () {
-                                          createReservations(
-                                              horariosDisponibles[0].dateTime);
-                                        },
-                                        child: Container(
-                                            width: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    2 -
-                                                20,
-                                            padding: EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              color: Colors.green,
-                                            ),
-                                            child: Center(
-                                              child: Text(
-                                                  LocalizationsKE.of(context)
-                                                      .reservar,
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                  )),
-                                            )),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            showAvailableReservations = true;
-                                          });
-                                        },
-                                        child: Container(
-                                            width: MediaQuery.of(context)
-                                                        .size
-                                                        .width /
-                                                    2 -
-                                                20,
-                                            padding: EdgeInsets.all(10),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              color: Colors.blue,
-                                            ),
-                                            child: Center(
-                                              child: AutoSizeText(
-                                                  LocalizationsKE.of(context)
-                                                      .otroshorarios,
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                  )),
-                                            )),
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              )*/
                     )),
                 currentStore != null
                     ? AnimatedPositioned(
@@ -2763,6 +2574,35 @@ class _MapPageState extends State<MapPage> {
                           })
                       : Container(),
                 ),
+                mapboxRouteBuilded
+                    ? Center(
+                        //height: MediaQuery.of(context).size.height / 2 - 60,
+                        child: InkWell(
+                        onTap: () {
+                          mapboxRouteBuilded = false;
+                          //controller.startNavigation(shouldSimulateRoute: true);
+                          setState(() {});
+                        },
+                        child: Center(
+                          child: Container(
+                            margin: EdgeInsets.symmetric(horizontal: 20),
+                            height: 50,
+                            decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(20)),
+                            child: Center(
+                              child: Text(
+                                "Start Navigation",
+                                style: TextStyle(
+                                  fontSize: 30,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ))
+                    : Container(),
                 loading
                     ? Center(
                         child: CircularProgressIndicator(),

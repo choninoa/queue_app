@@ -15,13 +15,14 @@ class NextEntryPreview extends StatefulWidget {
   List<DateAux> horariosDisponibles;
   Function createReservation;
   Function travelMode;
+  TravelMode travel;
   NextEntryPreview(
       {this.store,
       this.distance,
       this.time,
       this.horariosDisponibles,
       this.createReservation,
-      this.travelMode});
+      this.travelMode,this.travel});
   @override
   _NextEntryPreviewState createState() => _NextEntryPreviewState();
 }
@@ -30,6 +31,7 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
     with SingleTickerProviderStateMixin {
   int currentPosition = 0;
   PageController _pageController;
+  
   @override
   void initState() {
     // TODO: implement initState
@@ -144,9 +146,16 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
                 children: [
                   InkWell(
                     onTap: () {
+                    
                       widget.travelMode(TravelMode.walking);
                     },
                     child: Container(
+                      padding: EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                          color: widget.travel  == TravelMode.walking
+                              ? Colors.indigo[300]
+                              : Colors.white),
                       margin: EdgeInsets.only(right: 10),
                       child: Image.asset(
                         "assets/images/one-man-walking.png",
@@ -156,9 +165,16 @@ class _NextEntryPreviewState extends State<NextEntryPreview>
                   ),
                   InkWell(
                     onTap: () {
+                     
                       widget.travelMode(TravelMode.driving);
                     },
                     child: Container(
+                      padding: EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                          color: widget.travel  == TravelMode.driving
+                              ? Colors.indigo[300]
+                              : Colors.white),
                       child: Image.asset(
                         "assets/images/Car.png",
                         height: 25,

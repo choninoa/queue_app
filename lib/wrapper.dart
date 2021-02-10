@@ -6,6 +6,7 @@ import 'package:ke/pages/MapPage.dart';
 import 'package:ke/pages/ReservationsPage.dart';
 import 'package:ke/pages/UserInfo.dart';
 import 'package:ke/pages/createStore.dart';
+import 'package:ke/pages/navigationPath.dart';
 import 'package:ke/providers/authServices.dart';
 import 'package:ke/providers/currentPositionProvider.dart';
 import 'package:ke/providers/utilsProvider.dart';
@@ -51,7 +52,7 @@ class _WrapperState extends State<Wrapper> {
                   title: "Virtual KE",
                   language: LocalizationsKE.of(context).locale.toString(),
                 )
-              : AccountInfo(),
+              :AccountInfo(),
       Positioned(
         bottom: 0,
         child: Container(

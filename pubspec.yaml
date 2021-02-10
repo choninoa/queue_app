@@ -48,7 +48,8 @@ dependencies:
   flutter_polyline_points: ^0.2.4
   table_calendar: ^2.3.3
   flutter_typeahead: ^1.9.1
-  flutter_mapbox_navigation: ^0.0.19
+  mapbox_navigation: ^1.0.4
+  #flutter_mapbox_navigation: ^0.0.19
   #speech_recognition: ^0.3.0+1
 
 
